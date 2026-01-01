@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGM Analysis Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .upload-card {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-card:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-card input[type="file"] {
+            display: none;
+        }
+
+        .upload-card label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .upload-card label:hover {
+            background: #764ba2;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .visualization-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .visualization-section.active {
+            display: block;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-bottom: 30px;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .analysis-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .analysis-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .events-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #28a745;
+        }
+
+        .event-item.meal {
+            border-left-color: #28a745;
+        }
+
+        .event-item.exercise {
+            border-left-color: #007bff;
+        }
+
+        .event-item.medication {
+            border-left-color: #ffc107;
+        }
+
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .event-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .event-time {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .event-carbs {
+            display: inline-block;
+            background: #e7f3ff;
+            color: #0066cc;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-right: 5px;
+        }
+
+        .event-quality {
+            display: inline-block;
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+
+        .hypotheses-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .hypothesis-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #6f42c1;
+        }
+
+        .hypothesis-text {
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .answerability-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .status-answerable {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-partial {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-unanswerable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-unknown {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .confidence-score {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .confidence-bar {
+            width: 100px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .confidence-high {
+            background: #28a745;
+        }
+
+        .confidence-medium {
+            background: #ffc107;
+        }
+
+        .confidence-low {
+            background: #dc3545;
+        }
+
+        .metrics-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .metrics-section.active {
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 10px;
+            padding: 20px;
+            color: white;
+        }
+
+        .metric-card h4 {
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .metric-unit {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .metric-coverage {
+            font-size: 0.85em;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #856404;
+        }
+
+        .warning h4 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .analysis-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🩸 CGM Analysis Visualizer</h1>
+            <p>Interactive visualization of glucose time series, events, and hypothesis answerability</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <h2>Load Analysis Artifacts</h2>
+            <p>Upload your CGM data, events, and hypotheses JSON files to begin analysis.</p>
+
+            <div class="warning" style="margin: 20px 0;">
+                <h4>📖 Getting Started</h4>
+                <p style="margin-bottom: 10px;">Try the app with sample data files:</p>
+                <ul style="margin-left: 20px; font-size: 0.9em;">
+                    <li><strong><a href="sample_cgm.json" target="_blank">sample_cgm.json</a></strong> - CGM time series data</li>
+                    <li><strong><a href="sample_events.json" target="_blank">sample_events.json</a></strong> - Meal and exercise events</li>
+                    <li><strong><a href="sample_metrics.json" target="_blank">sample_metrics.json</a></strong> - Calculated metrics (optional)</li>
+                    <li><strong><a href="sample_hypotheses.json" target="_blank">sample_hypotheses.json</a></strong> - Hypotheses with answerability status</li>
+                </ul>
+            </div>
+
+            <div class="upload-grid">
+                <div class="upload-card">
+                    <h3>📊 CGM Time Series</h3>
+                    <p>Glucose measurements over time</p>
+                    <label for="cgmFile">Choose File</label>
+                    <input type="file" id="cgmFile" accept=".json" onchange="handleFileUpload(event, 'cgm')">
+                    <div class="file-info" id="cgmFileInfo">No file selected</div>
+                </div>
+
+                <div class="upload-card">
+                    <h3>📋 Meal & Events</h3>
+                    <p>Meals, interventions, and annotations</p>
+                    <label for="eventsFile">Choose File</label>
+                    <input type="file" id="eventsFile" accept=".json" onchange="handleFileUpload(event, 'events')">
+                    <div class="file-info" id="eventsFileInfo">No file selected</div>
+                </div>
+
+                <div class="upload-card">
+                    <h3>💡 Hypotheses</h3>
+                    <p>Research questions and hypotheses</p>
+                    <label for="hypothesesFile">Choose File</label>
+                    <input type="file" id="hypothesesFile" accept=".json" onchange="handleFileUpload(event, 'hypotheses')">
+                    <div class="file-info" id="hypothesesFileInfo">No file selected</div>
+                </div>
+
+                <div class="upload-card">
+                    <h3>📈 Event Metrics</h3>
+                    <p>Calculated metrics per event (optional)</p>
+                    <label for="metricsFile">Choose File</label>
+                    <input type="file" id="metricsFile" accept=".json" onchange="handleFileUpload(event, 'metrics')">
+                    <div class="file-info" id="metricsFileInfo">No file selected</div>
+                </div>
+            </div>
+
+            <div id="loadingIndicator" class="loading hidden" style="display: block; margin: 20px auto; width: 40px; height: 40px;"></div>
+
+            <div class="warning" id="subjectMismatchWarning" style="display: none;">
+                <h4>⚠️ Subject ID Mismatch</h4>
+                <p id="subjectMismatchText">The uploaded files contain different subject IDs. Please verify you're analyzing the same subject's data.</p>
+            </div>
+        </div>
+
+        <!-- Visualization Section -->
+        <div class="visualization-section" id="visualizationSection">
+            <h2>📈 CGM Time Series & Events</h2>
+
+            <div class="chart-container">
+                <canvas id="cgmChart"></canvas>
+            </div>
+
+            <div class="analysis-grid">
+                <div class="analysis-card">
+                    <h3>🍽️ Events</h3>
+                    <div class="events-list" id="eventsList">
+                        <p>No events loaded</p>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>🧪 Hypotheses</h3>
+                    <div class="hypotheses-list" id="hypothesesList">
+                        <p>No hypotheses loaded</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Section -->
+        <div class="metrics-section" id="metricsSection">
+            <h2>📊 Event Metrics</h2>
+            <div id="metricsContent">
+                <p>No metrics loaded. Upload a metrics file or calculate them using the CLI tool.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

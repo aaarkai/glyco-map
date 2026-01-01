@@ -175,9 +175,33 @@
         display: inline-block;
       }
 
+      .case-controls {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .case-controls select {
+        font-size: 13px;
+        text-transform: none;
+        letter-spacing: 0.02em;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(31, 26, 20, 0.18);
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--ink);
+        font-family: "Literata", serif;
+      }
+
       canvas {
         width: 100%;
-        height: 180px;
+        height: 240px;
         display: block;
         border-radius: 16px;
         background: rgba(255, 255, 255, 0.6);
@@ -303,7 +327,7 @@
 
       @media (max-width: 980px) {
         canvas {
-          height: 200px;
+          height: 260px;
         }
       }
 
@@ -329,12 +353,13 @@
             to verify coverage, timing, and context.
           </p>
         </div>
+        <div id="case-controls" class="case-controls"></div>
       </section>
     </header>
     <main id="cases"></main>
     <footer>Data stays local. This viewer reads JSON files from the repo.</footer>
     <script>
-      const CASE_INDEX_URL = "../output/cases.json";
+      const CASE_INDEX_URLS = ["../output/cases.json", "./cases.json"];
 
       function parseTimestamp(value) {
         return new Date(value);
@@ -366,11 +391,13 @@
         return [min, max];
       }
 
-      function drawGrid(ctx, width, height, padding, minValue, maxValue) {
+      function drawGrid(ctx, width, height, padding, minValue, maxValue, axisHeight = 0) {
+        const plotBottom = height - padding - axisHeight;
+        const plotHeight = plotBottom - padding;
         ctx.strokeStyle = "rgba(31, 26, 20, 0.14)";
         ctx.lineWidth = 1;
         for (let i = 0; i <= 4; i++) {
-          const y = padding + (height - padding * 2) * (i / 4);
+          const y = padding + plotHeight * (i / 4);
           ctx.beginPath();
           ctx.moveTo(padding, y);
           ctx.lineTo(width - padding, y);
@@ -385,7 +412,7 @@
         }
       }
 
-      function drawTimeAxis(ctx, minTime, maxTime, xScale, padding, height) {
+      function drawTimeAxis(ctx, minTime, maxTime, xScale, plotBottom, axisHeight) {
         const tickCount = 5;
         const span = maxTime - minTime || 1;
         ctx.strokeStyle = "rgba(31, 26, 20, 0.25)";
@@ -393,8 +420,8 @@
         ctx.font = "11px Literata, serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const yTick = height - padding;
-        const yLabel = yTick + 10;
+        const yTick = plotBottom;
+        const yLabel = yTick + Math.min(axisHeight - 10, 12);
 
         for (let i = 0; i < tickCount; i++) {
           const t = minTime + (span * i) / (tickCount - 1);
@@ -418,13 +445,13 @@
         ctx.stroke();
       }
 
-      function drawEvents(ctx, events, xScale, padding, height) {
+      function drawEvents(ctx, events, xScale, padding, plotBottom) {
         ctx.strokeStyle = "rgba(31, 26, 20, 0.32)";
         events.forEach((event, idx) => {
           const x = xScale(parseTimestamp(event.start_time));
           ctx.beginPath();
           ctx.moveTo(x, padding);
-          ctx.lineTo(x, height - padding);
+          ctx.lineTo(x, plotBottom);
           ctx.stroke();
         });
       }
@@ -542,6 +569,35 @@
         }
       }
 
+      async function loadCaseIndex() {
+        for (const url of CASE_INDEX_URLS) {
+          const data = await loadJson(url);
+          if (data) {
+            return {
+              data,
+              baseDir: url.replace(/\/cases\.json$/, ""),
+            };
+          }
+        }
+        return { data: null, baseDir: null };
+      }
+
+      function resolveCasePath(caseConfig, baseDir) {
+        const raw = caseConfig.path || caseConfig.slug || caseConfig.title || "";
+        if (!raw) return baseDir || "";
+        if (raw.startsWith(".") || raw.startsWith("/")) return raw;
+        if (!baseDir) return raw;
+        return `${baseDir}/${raw}`;
+      }
+
+      function sortCases(cases) {
+        return cases.slice().sort((a, b) => {
+          const aTime = a.end_time ? Date.parse(a.end_time) : 0;
+          const bTime = b.end_time ? Date.parse(b.end_time) : 0;
+          return bTime - aTime;
+        });
+      }
+
       async function renderCase(caseConfig) {
         const basePath = caseConfig.path || "../output";
         const cgm = await loadJson(`${basePath}/cgm.json`);
@@ -549,8 +605,7 @@
           const error = document.createElement("section");
           error.className = "panel";
           error.textContent = `Missing cgm.json for ${caseConfig.title || basePath}`;
-          document.getElementById("cases").appendChild(error);
-          return;
+          return error;
         }
 
         const samples = cgm.samples || [];
@@ -617,24 +672,26 @@
 
         const canvas = document.createElement("canvas");
         canvas.width = 1200;
-        canvas.height = 180;
+        canvas.height = 240;
         chartPanel.appendChild(canvas);
         section.appendChild(chartPanel);
 
         const ctx = canvas.getContext("2d");
-        const padding = 50;
+        const padding = 46;
+        const axisHeight = 28;
         const width = canvas.width;
         const height = canvas.height;
+        const plotBottom = height - padding - axisHeight;
+        const plotHeight = plotBottom - padding;
         ctx.clearRect(0, 0, width, height);
-        drawGrid(ctx, width, height, padding, minValue, maxValue);
+        drawGrid(ctx, width, height, padding, minValue, maxValue, axisHeight);
 
         const timeSpan = maxTime - minTime || 1;
         const xScale = (time) =>
           padding + ((time - minTime) / timeSpan) * (width - padding * 2);
         const yScale = (value) =>
-          height -
-          padding -
-          ((value - minValue) / (maxValue - minValue || 1)) * (height - padding * 2);
+          plotBottom -
+          ((value - minValue) / (maxValue - minValue || 1)) * plotHeight;
 
         const points = samples.map((sample) => [
           xScale(parseTimestamp(sample.timestamp)),
@@ -643,10 +700,10 @@
         drawLine(ctx, points);
 
         if (events.length) {
-          drawEvents(ctx, events, xScale, padding, height);
+          drawEvents(ctx, events, xScale, padding, plotBottom);
         }
 
-        drawTimeAxis(ctx, minTime, maxTime, xScale, padding, height);
+        drawTimeAxis(ctx, minTime, maxTime, xScale, plotBottom, axisHeight);
 
         const details = document.createElement("div");
         details.className = "case-details two-up";
@@ -677,7 +734,7 @@
         details.appendChild(metricsPanel);
         section.appendChild(details);
 
-        document.getElementById("cases").appendChild(section);
+        return section;
       }
 
       function renderGlossary() {
@@ -702,22 +759,51 @@
       }
 
       async function render() {
-        const casesIndex = await loadJson(CASE_INDEX_URL);
+        const { data: casesIndex, baseDir } = await loadCaseIndex();
         let cases = [];
 
         if (casesIndex?.cases?.length) {
-          cases = casesIndex.cases;
+          cases = sortCases(casesIndex.cases).map((caseConfig) => ({
+            ...caseConfig,
+            path: resolveCasePath(caseConfig, baseDir),
+          }));
         } else {
           const defaultPath = await resolveDefaultPath();
           cases = [{ title: "Latest run", path: defaultPath }];
         }
 
         const root = document.getElementById("cases");
+        const controls = document.getElementById("case-controls");
         root.innerHTML = "";
-        for (const caseConfig of cases) {
-          await renderCase(caseConfig);
+        controls.innerHTML = "";
+
+        const renderSelection = async (index) => {
+          root.innerHTML = "";
+          const section = await renderCase(cases[index]);
+          root.appendChild(section);
+          root.appendChild(renderGlossary());
+        };
+
+        if (cases.length > 1) {
+          const label = document.createElement("label");
+          label.textContent = "Select case";
+          const select = document.createElement("select");
+          select.className = "case-select";
+          cases.forEach((caseConfig, idx) => {
+            const option = document.createElement("option");
+            option.value = String(idx);
+            option.textContent = caseConfig.title || `Case ${idx + 1}`;
+            select.appendChild(option);
+          });
+          controls.appendChild(label);
+          controls.appendChild(select);
+          select.addEventListener("change", (event) => {
+            const idx = Number(event.target.value);
+            renderSelection(Number.isFinite(idx) ? idx : 0);
+          });
         }
-        root.appendChild(renderGlossary());
+
+        await renderSelection(0);
       }
 
       render();

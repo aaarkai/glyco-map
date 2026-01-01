@@ -73,15 +73,17 @@ jobs:
 
       - name: Run pipeline
         run: |
-          XLSX_PATH="${{ inputs.xlsx_path || 'data/cgm.xlsx' }}"
+          XLSX_PATH_INPUT="${{ inputs.xlsx_path }}"
           EVENTS_PATH="${{ inputs.events_path || 'data/events.json' }}"
           EVENTS_TEXT_PATH="${{ inputs.events_text_path || 'data/events.txt' }}"
           QUESTION_PATH="${{ inputs.question_path || 'data/question.json' }}"
-          OUTPUT_DIR="${{ inputs.output_dir || 'output' }}"
+          OUTPUT_ROOT="${{ inputs.output_dir || 'output' }}"
           SUBJECT_ID="${{ inputs.subject_id || vars.SUBJECT_ID }}"
           DEVICE_ID="${{ inputs.device_id || vars.DEVICE_ID }}"
           TIMEZONE="${{ inputs.timezone || vars.TIMEZONE || 'Asia/Shanghai' }}"
           UNIT="${{ inputs.unit || 'mg/dL' }}"
+
+          mkdir -p "$OUTPUT_ROOT"
 
           SUBJECT_ARG=""
           DEVICE_ARG=""
@@ -91,31 +93,104 @@ jobs:
           if [ -n "$DEVICE_ID" ]; then
             DEVICE_ARG="--device-id $DEVICE_ID"
           fi
-          EVENTS_ARG=""
-          EVENTS_TEXT_ARG=""
           QUESTION_ARG=""
-          if [ -f "$EVENTS_TEXT_PATH" ]; then
-            EVENTS_TEXT_ARG="--events-text $EVENTS_TEXT_PATH"
-          elif [ -f "$EVENTS_PATH" ]; then
-            EVENTS_ARG="--events-file $EVENTS_PATH"
-          fi
           if [ -f "$QUESTION_PATH" ]; then
             QUESTION_ARG="--question-file $QUESTION_PATH"
           fi
 
-          python -m cgm_pipeline.cli \
-            "$XLSX_PATH" \
-            "$OUTPUT_DIR" \
-            $EVENTS_ARG \
-            $EVENTS_TEXT_ARG \
-            $QUESTION_ARG \
-            $SUBJECT_ARG \
-            $DEVICE_ARG \
-            --timezone "$TIMEZONE" \
-            --unit "$UNIT" \
-            --pretty \
-            --markdown \
-            --verbose
+          XLSX_LIST=()
+          if [ -n "$XLSX_PATH_INPUT" ] && [ -f "$XLSX_PATH_INPUT" ]; then
+            XLSX_LIST=("$XLSX_PATH_INPUT")
+          else
+            mapfile -t XLSX_LIST < <(ls data/*.xlsx 2>/dev/null || true)
+          fi
+
+          if [ "${#XLSX_LIST[@]}" -eq 0 ]; then
+            echo "No XLSX files found. Add at least one file under data/."
+            exit 1
+          fi
+
+          for XLSX_PATH in "${XLSX_LIST[@]}"; do
+            STEM="$(basename "$XLSX_PATH")"
+            STEM="${STEM%.xlsx}"
+            OUTPUT_DIR="${OUTPUT_ROOT}/${STEM}"
+
+            EVENTS_ARG=""
+            EVENTS_TEXT_ARG=""
+            EVENTS_TEXT_CANDIDATE="data/${STEM}.txt"
+            EVENTS_JSON_CANDIDATE="data/${STEM}.json"
+            if [ -f "$EVENTS_TEXT_CANDIDATE" ]; then
+              EVENTS_TEXT_ARG="--events-text $EVENTS_TEXT_CANDIDATE"
+            elif [ -f "$EVENTS_JSON_CANDIDATE" ]; then
+              EVENTS_ARG="--events-file $EVENTS_JSON_CANDIDATE"
+            elif [ -f "$EVENTS_TEXT_PATH" ]; then
+              EVENTS_TEXT_ARG="--events-text $EVENTS_TEXT_PATH"
+            elif [ -f "$EVENTS_PATH" ]; then
+              EVENTS_ARG="--events-file $EVENTS_PATH"
+            fi
+
+            python -m cgm_pipeline.cli \
+              "$XLSX_PATH" \
+              "$OUTPUT_DIR" \
+              $EVENTS_ARG \
+              $EVENTS_TEXT_ARG \
+              $QUESTION_ARG \
+              $SUBJECT_ARG \
+              $DEVICE_ARG \
+              --timezone "$TIMEZONE" \
+              --unit "$UNIT" \
+              --pretty \
+              --markdown \
+              --verbose
+          done
+
+          export OUTPUT_ROOT
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          output_root = Path(os.environ["OUTPUT_ROOT"])
+          cases = []
+
+          for path in sorted(output_root.iterdir()):
+            if not path.is_dir():
+              continue
+            cgm_path = path / "cgm.json"
+            if not cgm_path.exists():
+              continue
+            end_time = None
+            sanity_path = path / "sanity.json"
+            if sanity_path.exists():
+              with sanity_path.open("r", encoding="utf-8") as handle:
+                sanity = json.load(handle)
+              end_time = sanity.get("summary", {}).get("end_time")
+            cases.append({
+              "title": path.name,
+              "path": path.name,
+              "end_time": end_time,
+            })
+
+          def parse_time(value):
+            if not value:
+              return 0
+            try:
+              return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+              return 0
+
+          cases.sort(key=lambda item: parse_time(item.get("end_time")), reverse=True)
+          payload = {
+            "schema_version": "1.0.0",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "cases": cases,
+          }
+
+          output_root.mkdir(parents=True, exist_ok=True)
+          with (output_root / "cases.json").open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+          PY
 
       - name: Upload pipeline outputs
         uses: actions/upload-artifact@v4
@@ -129,19 +204,14 @@ jobs:
           PAGES_DIR="pages"
           mkdir -p "$PAGES_DIR"
           cp "web/index.html" "$PAGES_DIR/index.html"
-          cp "$OUTPUT_DIR/cgm.json" "$PAGES_DIR/cgm.json"
-          if [ -f "$OUTPUT_DIR/events.json" ]; then
-            cp "$OUTPUT_DIR/events.json" "$PAGES_DIR/events.json"
+          if [ -f "$OUTPUT_DIR/cases.json" ]; then
+            cp "$OUTPUT_DIR/cases.json" "$PAGES_DIR/cases.json"
           fi
-          if [ -f "$OUTPUT_DIR/metrics.json" ]; then
-            cp "$OUTPUT_DIR/metrics.json" "$PAGES_DIR/metrics.json"
-          fi
-          if [ -f "$OUTPUT_DIR/report.json" ]; then
-            cp "$OUTPUT_DIR/report.json" "$PAGES_DIR/report.json"
-          fi
-          if [ -f "$OUTPUT_DIR/report.md" ]; then
-            cp "$OUTPUT_DIR/report.md" "$PAGES_DIR/report.md"
-          fi
+          for CASE_DIR in "$OUTPUT_DIR"/*; do
+            if [ -d "$CASE_DIR" ]; then
+              cp -R "$CASE_DIR" "$PAGES_DIR/"
+            fi
+          done
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

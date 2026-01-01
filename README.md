@@ -208,6 +208,12 @@ Recommended upload location:
 - `data/events.txt` (optional, one event per line)
 - `data/question.json` (optional)
 
+You can also upload multiple XLSX files under `data/`. The workflow will:
+
+- Run each `data/<name>.xlsx` into `output/<name>/`
+- Use `data/<name>.txt` or `data/<name>.json` for events when present
+- Write `output/cases.json` so the web viewer can switch between cases
+
 When you push changes under `data/`, the workflow triggers automatically.
 Set these repository variables in GitHub Actions (optional):
 

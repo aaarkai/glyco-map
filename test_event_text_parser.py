@@ -37,6 +37,22 @@ class TestEventTextParser(unittest.TestCase):
                 timezone="Asia/Shanghai",
             )
 
+    def test_parse_lines_merge_same_time(self):
+        lines = [
+            "2026-01-01 12:00 item-a\n",
+            "2026-01-01 12:00 item-b\n",
+            "2026-01-01 12:30 item-c\n",
+        ]
+
+        events = self.parser.parse_lines(
+            lines,
+            subject_id="subject_001",
+            timezone="Asia/Shanghai",
+        )
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["label"], "item-a / item-b")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

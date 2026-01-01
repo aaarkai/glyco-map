@@ -28,9 +28,12 @@ class CGMEventTextParser:
         event_type: str = "meal",
         source: str = "manual",
         annotation_quality: float = 0.8,
+        merge_same_time: bool = True,
     ) -> List[Dict[str, Any]]:
         events: List[Dict[str, Any]] = []
         tzinfo = ZoneInfo(timezone)
+        grouped: Dict[str, Dict[str, Any]] = {}
+        order: List[str] = []
 
         for idx, raw_line in enumerate(lines, start=1):
             line = raw_line.strip()
@@ -52,6 +55,17 @@ class CGMEventTextParser:
                 raise ValueError(f"Invalid timestamp at line {idx}: {exc}") from exc
 
             start_time = naive_time.replace(tzinfo=tzinfo)
+            start_key = start_time.isoformat()
+
+            if merge_same_time:
+                if start_key not in grouped:
+                    grouped[start_key] = {
+                        "start_time": start_time,
+                        "labels": [],
+                    }
+                    order.append(start_key)
+                grouped[start_key]["labels"].append(label.strip())
+                continue
 
             try:
                 event = self.creator.create_event(
@@ -67,6 +81,23 @@ class CGMEventTextParser:
 
             events.append(event)
 
+        if merge_same_time:
+            for key in order:
+                payload = grouped[key]
+                combined_label = " / ".join(payload["labels"])
+                try:
+                    event = self.creator.create_event(
+                        subject_id=subject_id,
+                        event_type=event_type,
+                        start_time=payload["start_time"],
+                        label=combined_label,
+                        source=source,
+                        annotation_quality=annotation_quality,
+                    )
+                except CGMEventError as exc:
+                    raise ValueError(f"Failed to create event at {key}: {exc}") from exc
+                events.append(event)
+
         return events
 
     def parse_file(
@@ -78,6 +109,7 @@ class CGMEventTextParser:
         source: str = "manual",
         annotation_quality: float = 0.8,
         encoding: str = "utf-8",
+        merge_same_time: bool = True,
     ) -> List[Dict[str, Any]]:
         with open(filepath, "r", encoding=encoding) as handle:
             lines = handle.readlines()
@@ -88,4 +120,5 @@ class CGMEventTextParser:
             event_type=event_type,
             source=source,
             annotation_quality=annotation_quality,
+            merge_same_time=merge_same_time,
         )

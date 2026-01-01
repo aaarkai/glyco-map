@@ -3,6 +3,7 @@ Core CGM XLSX importer functionality.
 """
 
 import json
+import logging
 import pandas as pd
 import numpy as np
 from datetime import timedelta
@@ -18,6 +19,7 @@ class CGM_XLSX_Importer:
 
     def __init__(self):
         self.required_columns = ["血糖时间", "血糖值"]  # timestamp, glucose_value
+        self._logger = logging.getLogger(__name__)
 
     def read_xlsx(self, filepath: str) -> pd.DataFrame:
         """
@@ -59,6 +61,14 @@ class CGM_XLSX_Importer:
         # This handles values like "异常" (abnormal) which are sensor errors
         original_values = df["glucose_value"].copy()
         df["glucose_value"] = pd.to_numeric(df["glucose_value"], errors="coerce")
+
+        non_numeric_count = int(df["glucose_value"].isna().sum())
+        if non_numeric_count:
+            self._logger.warning(
+                "Dropped %d non-numeric glucose readings from %s",
+                non_numeric_count,
+                filepath,
+            )
 
         # Create quality flags column for non-numeric original values
         quality_flags = []

@@ -48,6 +48,43 @@ python -m cgm_importer.cli input.xlsx \
   --pretty
 ```
 
+### Creating Meal/Intervention Events
+
+**IMPORTANT: Events are CLAIMS about exposures, not ground truth measurements.**
+
+Create events interactively:
+
+```bash
+python -m cgm_events.cli events.json \
+  --subject-id user1 \
+  --timezone America/Los_Angeles \
+  --multiple
+```
+
+Create a single event with all parameters:
+
+```bash
+python -m cgm_events.cli events.json \
+  --subject-id user1 \
+  --timezone America/Los_Angeles \
+  --event-type meal \
+  --label "pizza dinner" \
+  --start-time "2024-01-01T18:30:00-08:00" \
+  --end-time "2024-01-01T19:00:00-08:00" \
+  --carbs 75 \
+  --tags "dinner,restaurant,post_exercise" \
+  --notes "ate 3 slices"
+```
+
+Event fields:
+- **start_time**: When the event started (required)
+- **end_time**: When the event ended (optional)
+- **label**: Free-text description (e.g., "pizza dinner")
+- **estimated_carbs**: Estimated carbs in grams (optional)
+- **context_tags**: Context for analysis (e.g., dinner, restaurant, post_exercise)
+- **source**: How the annotation was created (manual/app/import/api)
+- **annotation_quality**: Subjective quality score 0-1
+
 ### Generating Signal Sanity Report
 
 After importing CGM data, generate a signal sanity report:
@@ -156,6 +193,37 @@ The importer annotates samples with quality flags when anomalies are detected:
 - `sensor_error`: Non-numeric glucose values (e.g., "异常" in source data)
 - `artifact`: Rapid glucose jumps followed by reversal, or flat readings (3+ identical values)
 
+## Event Annotations
+
+**IMPORTANT DESIGN PRINCIPLE:** Events (meals, interventions) are **CLAIMS** about exposures, not ground truth measurements.
+
+### Key Distinctions
+
+**Events are CLAIMS:**
+- Subject-reported or observer-annotated
+- Subjective quality and timing
+- May contain recall bias
+- Annotation quality varies by source
+
+**CGM Data are MEASUREMENTS:**
+- Device-recorded timestamps
+- Objective values (with sensor artifacts flagged)
+- Mechanical sampling intervals
+
+### Implications for Analysis
+
+1. **Question answerability** depends on event annotation quality
+2. **Causal inference** must account for uncertainty in both timing and dose
+3. **Low-quality annotations** may not support reliable conclusions
+4. **Validation** should compare claims against external sources when possible
+
+The system validates events and warns about:
+- Low annotation quality (< 0.5)
+- Missing exposure components (e.g., no carb estimates)
+- Very short events (< 5 minutes)
+- Manual entry sources (vs. app/import)
+- Missing context tags
+
 ## Sanity Report Output
 
 The sanity report generates JSON with detailed quality analysis:
@@ -212,12 +280,22 @@ python test_sanity_report.py
 
 The package is structured into:
 
+### CGM Import and Analysis
 - `cgm_importer/importer.py`: Core import logic with artifact detection
 - `cgm_importer/cli.py`: Command-line interface for importing
 - `cgm_importer/sanity_report.py`: Signal quality analysis
 - `cgm_importer/sanity_cli.py`: CLI for generating sanity reports
 - `test_importer.py`: Test suite for importer
-- `test_sanity_report.py`: Test suite for sanity report
+
+### Event Annotation
+- `cgm_events/events.py`: Event creation and validation
+- `cgm_events/cli.py`: CLI for creating meal/intervention events
+- `test_events.py`: Test suite for events
+
+### Schemas
+- `schemas/cgm-time-series.schema.json`: CGM time series format
+- `schemas/meal-intervention-events.schema.json`: Event annotation format
+- Additional schemas for derived metrics and hypothesis evaluation
 
 ## License
 

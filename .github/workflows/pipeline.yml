@@ -43,12 +43,15 @@ on:
         required: false
       publish_path:
         description: "Path in publish repo to write report files"
-        default: "reports"
+        default: "ecg_map"
         required: false
       publish_branch:
         description: "Branch to push in publish repo"
         default: "main"
         required: false
+  push:
+    paths:
+      - "data/**"
 
 jobs:
   pipeline:
@@ -70,29 +73,43 @@ jobs:
 
       - name: Run pipeline
         run: |
+          XLSX_PATH="${{ inputs.xlsx_path || 'data/cgm.xlsx' }}"
+          EVENTS_PATH="${{ inputs.events_path || 'data/events.json' }}"
+          EVENTS_TEXT_PATH="${{ inputs.events_text_path || 'data/events.txt' }}"
+          QUESTION_PATH="${{ inputs.question_path || 'data/question.json' }}"
+          OUTPUT_DIR="${{ inputs.output_dir || 'output' }}"
+          SUBJECT_ID="${{ inputs.subject_id || vars.SUBJECT_ID }}"
+          DEVICE_ID="${{ inputs.device_id || vars.DEVICE_ID }}"
+          TIMEZONE="${{ inputs.timezone || vars.TIMEZONE || 'Asia/Shanghai' }}"
+          UNIT="${{ inputs.unit || 'mg/dL' }}"
+
+          if [ -z "$SUBJECT_ID" ] || [ -z "$DEVICE_ID" ]; then
+            echo "SUBJECT_ID and DEVICE_ID are required (set workflow inputs or repo variables)."
+            exit 1
+          fi
+
           EVENTS_ARG=""
           EVENTS_TEXT_ARG=""
           QUESTION_ARG=""
-          if [ -n "${{ inputs.events_path }}" ]; then
-            EVENTS_ARG="--events-file ${{ inputs.events_path }}"
+          if [ -f "$EVENTS_TEXT_PATH" ]; then
+            EVENTS_TEXT_ARG="--events-text $EVENTS_TEXT_PATH"
+          elif [ -f "$EVENTS_PATH" ]; then
+            EVENTS_ARG="--events-file $EVENTS_PATH"
           fi
-          if [ -n "${{ inputs.events_text_path }}" ]; then
-            EVENTS_TEXT_ARG="--events-text ${{ inputs.events_text_path }}"
-          fi
-          if [ -n "${{ inputs.question_path }}" ]; then
-            QUESTION_ARG="--question-file ${{ inputs.question_path }}"
+          if [ -f "$QUESTION_PATH" ]; then
+            QUESTION_ARG="--question-file $QUESTION_PATH"
           fi
 
           python -m cgm_pipeline.cli \
-            "${{ inputs.xlsx_path }}" \
-            "${{ inputs.output_dir }}" \
+            "$XLSX_PATH" \
+            "$OUTPUT_DIR" \
             $EVENTS_ARG \
             $EVENTS_TEXT_ARG \
             $QUESTION_ARG \
-            --subject-id "${{ inputs.subject_id }}" \
-            --device-id "${{ inputs.device_id }}" \
-            --timezone "${{ inputs.timezone }}" \
-            --unit "${{ inputs.unit }}" \
+            --subject-id "$SUBJECT_ID" \
+            --device-id "$DEVICE_ID" \
+            --timezone "$TIMEZONE" \
+            --unit "$UNIT" \
             --pretty \
             --markdown \
             --verbose
@@ -104,7 +121,7 @@ jobs:
           path: ${{ inputs.output_dir }}
 
       - name: Publish report to GitHub Pages repo
-        if: ${{ inputs.publish_repo != '' }}
+        if: ${{ (inputs.publish_repo || vars.PUBLISH_REPO) != '' }}
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: |
@@ -112,18 +129,28 @@ jobs:
             echo "PUBLISH_TOKEN secret is required to push to publish_repo."
             exit 1
           fi
+          PUBLISH_REPO="${{ inputs.publish_repo || vars.PUBLISH_REPO }}"
+          PUBLISH_PATH="${{ inputs.publish_path || vars.PUBLISH_PATH || 'ecg_map' }}"
+          PUBLISH_BRANCH="${{ inputs.publish_branch || vars.PUBLISH_BRANCH || 'main' }}"
           git config --global user.name "cgm-pipeline-bot"
           git config --global user.email "cgm-pipeline-bot@users.noreply.github.com"
-          git clone "https://x-access-token:${PUBLISH_TOKEN}@github.com/${{ inputs.publish_repo }}.git" publish_repo
+          git clone "https://x-access-token:${PUBLISH_TOKEN}@github.com/${PUBLISH_REPO}.git" publish_repo
           cd publish_repo
-          git checkout "${{ inputs.publish_branch }}"
-          mkdir -p "${{ inputs.publish_path }}"
-          cp "../${{ inputs.output_dir }}/report.json" "${{ inputs.publish_path }}/report.json"
-          cp "../${{ inputs.output_dir }}/report.md" "${{ inputs.publish_path }}/report.md"
-          git add "${{ inputs.publish_path }}/report.json" "${{ inputs.publish_path }}/report.md"
+          git checkout "$PUBLISH_BRANCH"
+          mkdir -p "$PUBLISH_PATH"
+          cp "../$OUTPUT_DIR/report.json" "$PUBLISH_PATH/report.json"
+          cp "../$OUTPUT_DIR/report.md" "$PUBLISH_PATH/report.md"
+          cp "../$OUTPUT_DIR/cgm.json" "$PUBLISH_PATH/cgm.json"
+          if [ -f "../$OUTPUT_DIR/events.json" ]; then
+            cp "../$OUTPUT_DIR/events.json" "$PUBLISH_PATH/events.json"
+          fi
+          if [ -f "../$OUTPUT_DIR/metrics.json" ]; then
+            cp "../$OUTPUT_DIR/metrics.json" "$PUBLISH_PATH/metrics.json"
+          fi
+          git add "$PUBLISH_PATH"
           if git diff --cached --quiet; then
             echo "No changes to publish."
             exit 0
           fi
           git commit -m "Update CGM report from pipeline run"
-          git push origin "${{ inputs.publish_branch }}"
+          git push origin "$PUBLISH_BRANCH"

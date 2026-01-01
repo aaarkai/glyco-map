@@ -206,6 +206,25 @@ The GitHub Actions workflow in `.github/workflows/pipeline.yml` runs this pipeli
 Events/questions are optional; when provided, it can publish `report.json`/`report.md`
 to a separate GitHub Pages repo.
 
+### Automated GitHub Actions Pipeline
+
+Recommended upload location:
+
+- `data/cgm.xlsx` (required)
+- `data/events.txt` (optional, one event per line)
+- `data/question.json` (optional)
+
+When you push changes under `data/`, the workflow triggers automatically.
+Set these repository variables in GitHub Actions:
+
+- `SUBJECT_ID`
+- `DEVICE_ID`
+- `TIMEZONE` (optional, defaults to Asia/Shanghai)
+- `PUBLISH_REPO` (e.g., `aaarkai/aaarkai.github.io`)
+- `PUBLISH_PATH` (e.g., `ecg_map`)
+
+Also add a `PUBLISH_TOKEN` secret with write access to the pages repo.
+
 ### Parameters
 
 - `input`: Path to the XLSX file (required)

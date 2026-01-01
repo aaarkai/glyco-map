@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>研究问题管理系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #0f172a;
+            --primary-light: #1e293b;
+            --accent-indigo: #6366f1;
+            --accent-violet: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --bg-gradient: linear-gradient(135deg, #0f172a, #1e293b, #334155);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(99, 102, 241, 0.2);
+            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --success-border: rgba(16, 185, 129, 0.3);
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --warning-border: rgba(245, 158, 11, 0.3);
+            --error-bg: rgba(239, 68, 68, 0.1);
+            --error-border: rgba(239, 68, 68, 0.3);
+            --unknown-bg: rgba(148, 163, 184, 0.1);
+            --unknown-border: rgba(148, 163, 184, 0.3);
+            --border-radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 40px 0;
+        }
+
+        /* Header - Hero Section */
+        .hero {
+            text-align: center;
+            padding: 100px 0;
+            background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1), transparent 70%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(99, 102, 241, 0.05)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .hero h1 {
+            font-family: 'Noto Serif SC', serif;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 40px;
+            font-weight: 300;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 32px;
+            padding: 12px 24px;
+            font-size: 0.9rem;
+            color: #c7d2fe;
+            margin-bottom: 32px;
+            backdrop-filter: blur(10px);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .section {
+            margin: 40px 60px;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .section:hover {
+            box-shadow: var(--card-shadow);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        .section-header {
+            padding: 32px 40px 24px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title-group h2 {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(99, 102, 241, 0.1);
+            color: #c7d2fe;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .section-content {
+            padding: 32px 40px;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05));
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-violet));
+        }
+
+        .summary-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(99, 102, 241, 0.4);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+        }
+
+        .summary-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Question List */
+        .question-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .question-item {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .question-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--state-color, var(--accent-indigo));
+            transition: var(--transition);
+        }
+
+        .question-item.answerable {
+            --state-color: var(--accent-emerald);
+            background: var(--success-bg);
+            border-color: var(--success-border);
+        }
+
+        .question-item.partial {
+            --state-color: var(--accent-amber);
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+        }
+
+        .question-item.unanswerable {
+            --state-color: var(--accent-red);
+            background: var(--error-bg);
+            border-color: var(--error-border);
+        }
+
+        .question-item.unknown {
+            --state-color: var(--text-secondary);
+            background: var(--unknown-bg);
+            border-color: var(--unknown-border);
+        }
+
+        .question-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            border-color: var(--state-color);
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            flex: 1;
+            margin-right: 20px;
+            line-height: 1.5;
+        }
+
+        .question-type {
+            background: rgba(99, 102, 241, 0.1);
+            color: #c7d2fe;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .question-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .answerability-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-badge.answerable {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge.partial {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .status-badge.unanswerable {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-badge.unknown {
+            background: rgba(148, 163, 184, 0.2);
+            color: #cbd5e1;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        .confidence {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .confidence-bar {
+            width: 100px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--state-color), transparent);
+            transition: width 0.5s ease;
+        }
+
+        /* Detailed Reasoning */
+        .reasoning {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .reasoning-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .reasoning-card {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            border-left: 3px solid var(--state-color);
+        }
+
+        .reasoning-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .reasoning-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .issues-list {
+            list-style: none;
+        }
+
+        .issue-item {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 4px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .issue-item::before {
+            content: '•';
+            color: var(--state-color);
+            position: absolute;
+            left: 8px;
+            font-size: 1.2rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 40px;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 24px;
+            opacity: 0.3;
+        }
+
+        .empty-title {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+
+        .empty-description {
+            font-size: 1rem;
+            max-width: 500px;
+            margin: 0 auto 32px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--border-radius);
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-header {
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: var(--transition);
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.5);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--accent-indigo);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-hint {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .section {
+                margin: 30px 20px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero {
+                padding: 60px 20px;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .section-content {
+                padding: 24px 20px;
+            }
+
+            .question-header {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .question-text {
+                margin-right: 0;
+            }
+
+            .question-meta {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero">
+            <div class="hero-badge">🔬 研究问题可答性评估系统</div>
+            <h1>研究问题<span class="gradient-text">管理</span>平台</h1>
+            <p>智能评估您的研究假设是否可被现有数据回答，并提供详尽的改进建议</p>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <h2>📊 问题总览</h2>
+                    <p class="section-subtitle">当前所有研究假设的可答性状态统计</p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="loadSampleQuestions()">📥 加载示例</button>
+                    <button class="btn btn-primary" onclick="openAddModal()">➕ 添加问题</button>
+                </div>
+            </div>
+
+            <div class="section-content">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-number" id="totalQuestions">0</div>
+                        <div class="summary-label">总问题数</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="answerableCount" style="color: #10b981;">0</div>
+                        <div class="summary-label">可回答</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="partialCount" style="color: #f59e0b;">0</div>
+                        <div class="summary-label">部分可答</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="unanswerableCount" style="color: #ef4444;">0</div>
+                        <div class="summary-label">无法回答</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="unknownCount" style="color: #94a3b8;">0</div>
+                        <div class="summary-label">待评估</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Questions List Section -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <h2>📝 研究问题列表</h2>
+                    <p class="section-subtitle">详细查看每个问题的可答性状态及改进建议</p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="exportQuestions()">💾 导出JSON</button>
+                </div>
+            </div>
+
+            <div class="section-content">
+                <div class="question-list" id="questionList">
+                    <div class="empty-state">
+                        <div class="empty-icon">💭</div>
+                        <h3 class="empty-title">暂无研究问题</h3>
+                        <p class="empty-description">点击"添加问题"按钮创建您的第一个研究假设，系统将自动评估其可答性</p>
+                        <button class="btn btn-primary" onclick="openAddModal()">添加第一个问题</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal" id="questionModal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">添加研究问题</h2>
+                <p class="section-subtitle">定义您的研究假设，系统将评估其可答性</p>
+            </div>
+
+            <form id="questionForm">
+                <div class="form-group">
+                    <label class="form-label">问题描述 *</label>
+                    <textarea class="form-textarea" id="questionText" placeholder="例如：餐后运动是否能有效降低血糖峰值？" required></textarea>
+                    <p class="form-hint">用清晰的语言描述您的研究假设或问题</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">问题类型</label>
+                    <select class="form-select" id="questionType">
+                        <option value="causal_effect">因果效应</option>
+                        <option value="comparative">比较分析</option>
+                        <option value="dose_response">剂量反应</option>
+                        <option value="optimization">优化问题</option>
+                        <option value="prediction">预测分析</option>
+                        <option value="correlation">相关性分析</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">分析说明（可选）</label>
+                    <textarea class="form-textarea" id="analysisNotes" placeholder="任何有助于分析的额外信息..."></textarea>
+                    <p class="form-hint">记录您的分析思路或问题的具体细节</p>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存问题</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Sample data for demonstration
+        const sampleQuestions = [
+            {
+                id: 'q1',
+                text: '高碳水化合物早餐是否会导致血糖峰值超过180 mg/dL？',
+                type: 'causal_effect',
+                answerability: {
+                    status: 'answerable',
+                    confidence: 0.85,
+                    reasoning: {
+                        summary: '有足够的数据支持这个问题',
+                        data_availability: [
+                            '已收集12天的早餐事件',
+                            'CGM覆盖率良好(>90%)',
+                            '碳水化合物标注完整'
+                        ],
+                        methodology: [
+                            '可计算每个事件的ΔPeak值',
+                            '有足够统计效力判断180mg/dL阈值'
+                        ],
+                        limitations: [
+                            '个体差异可能影响结果'
+                        ]
+                    },
+                    issues: []
+                },
+                created_at: '2024-01-01T08:00:00Z',
+                analysis_notes: '关注早餐后的2小时窗口'
+            },
+            {
+                id: 'q2',
+                text: '运动对血糖的影响是否与运动强度呈线性关系？',
+                type: 'dose_response',
+                answerability: {
+                    status: 'partial',
+                    confidence: 0.6,
+                    reasoning: {
+                        summary: '有足够的数据支持这个问题',
+                        data_availability: [
+                            '有低强度和中等强度运动记录',
+                            'CGM覆盖率良好(>90%)'
+                        ],
+                        methodology: [
+                            '可比较不同强度下的ΔPeak和iAUC'
+                        ],
+                        limitations: [
+                            '缺少高强度运动数据',
+                            '运动时长不一致可能干扰'
+                        ]
+                    },
+                    issues: []
+                },
+                created_at: '2024-01-01T09:00:00Z',
+                analysis_notes: '
+运动强度定义为低、中、高
+'
+            },
+            {
+                id: 'q3',
+                text: '周末和工作日的血糖变异性是否存在显著差异？',
+                type: 'comparative',
+                answerability: {
+                    status: 'unanswerable',
+                    confidence: 0.2,
+                    reasoning: {
+                        summary: '数据不足以回答此问题',
+                        data_availability: [
+                            '仅收集了一周的数据',
+                            '缺少多天的工作日/周末数据'
+                        ],
+                        methodology: [
+                            '方法可行，但需要更多数据'
+                        ],
+                        limitations: [
+                            '样本量太少无法统计比较',
+                            '需要至少8周的数据'
+                        ]
+                    },
+                    issues: [
+                        '数据覆盖天数不足',
+                        '缺少对照组'
+                    ]
+                },
+                created_at: '2024-01-01T10:00:00Z',
+                analysis_notes: 'This would need much longer data collection'
+            },
+            {
+                id: 'q4',
+                text: '连续血糖波动模式是否能预测未来的低血糖事件？',
+                type: 'prediction',
+                answerability: {
+                    status: 'unknown',
+                    confidence: 0.0,
+                    reasoning: {
+                        summary: '需要进一步分析',
+                        data_availability: [],
+                        methodology: [],
+                        limitations: []
+                    },
+                    issues: [
+                        '未定义预测时间窗口',
+                        '需要专门的模型',
+                        '缺少低血糖事件标注'
+                    ]
+                },
+                created_at: '2024-01-01T11:00:00Z',
+                analysis_notes: ''
+            }
+        ];
+
+        let questions = [];
+        let editingId = null;
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadQuestions();
+            updateSummary();
+            renderQuestions();
+        });
+
+        // Load questions from localStorage or use sample data
+        function loadQuestions() {
+            const stored = localStorage.getItem('cgmQuestions');
+            if (stored) {
+                questions = JSON.parse(stored);
+            } else {
+                questions = [];
+            }
+        }
+
+        // Save questions to localStorage
+        function saveQuestions() {
+            localStorage.setItem('cgmQuestions', JSON.stringify(questions));
+        }
+
+        // Load sample questions
+        function loadSampleQuestions() {
+            questions = [...sampleQuestions];
+            saveQuestions();
+            updateSummary();
+            renderQuestions();
+            alert('示例问题已加载！');
+        }
+
+        // Update summary statistics
+        function updateSummary() {
+            const total = questions.length;
+            const answerable = questions.filter(q => q.answerability?.status === 'answerable').length;
+            const partial = questions.filter(q => q.answerability?.status === 'partial').length;
+            const unanswerable = questions.filter(q => q.answerability?.status === 'unanswerable').length;
+            const unknown = questions.filter(q => !q.answerability || q.answerability?.status === 'unknown').length;
+
+            document.getElementById('totalQuestions').textContent = total;
+            document.getElementById('answerableCount').textContent = answerable;
+            document.getElementById('partialCount').textContent = partial;
+            document.getElementById('unanswerableCount').textContent = unanswerable;
+            document.getElementById('unknownCount').textContent = unknown;
+        }
+
+        // Render questions list
+        function renderQuestions() {
+            const list = document.getElementById('questionList');
+
+            if (questions.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">💭</div>
+                        <h3 class="empty-title">暂无研究问题</h3>
+                        <p class="empty-description">点击"添加问题"按钮创建您的第一个研究假设，系统将自动评估其可答性</p>
+                        <button class="btn btn-primary" onclick="openAddModal()">添加第一个问题</button>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = questions.map(question => {
+                const answerability = question.answerability || { status: 'unknown', confidence: 0 };
+                const status = answerability.status;
+                const confidence = answerability.confidence || 0;
+                const issues = answerability.issues || [];
+
+                let reasoningHtml = '';
+                if (answerability.reasoning) {
+                    reasoningHtml = `
+                        <div class="reasoning">
+                            <div class="reasoning-grid">
+                                <div class="reasoning-card">
+                                    <div class="reasoning-title">
+                                        📊 数据可用性
+                                    </div>
+                                    <ul class="issues-list">
+                                        ${(answerability.reasoning.data_availability || []).map(item =>
+                                            `<li class="issue-item">${item}</li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                                <div class="reasoning-card">
+                                    <div class="reasoning-title">
+                                        🔬 分析方法
+                                    </div>
+                                    <ul class="issues-list">
+                                        ${(answerability.reasoning.methodology || []).map(item =>
+                                            `<li class="issue-item">${item}</li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                                <div class="reasoning-card">
+                                    <div class="reasoning-title">
+                                        ⚠️ 局限性
+                                    </div>
+                                    <ul class="issues-list">
+                                        ${(answerability.reasoning.limitations || []).map(item =>
+                                            `<li class="issue-item">${item}</li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="question-item ${status}" onclick="toggleQuestionDetails('${question.id}')">
+                        <div class="question-header">
+                            <div class="question-text">${question.text}</div>
+                            <div class="question-type">${getTypeLabel(question.type)}</div>
+                        </div>
+
+                        <div class="question-meta">
+                            <div class="answerability-status">
+                                <div class="status-badge ${status}">
+                                    ${getStatusLabel(status)}
+                                </div>
+                                <div class="confidence">
+                                    <span>置信度</span>
+                                    <div class="confidence-bar">
+                                        <div class="confidence-fill" style="width: ${confidence * 100}%"></div>
+                                    </div>
+                                    <span>${Math.round(confidence * 100)}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${issues.length > 0 ? `
+                            <div class="reasoning" style="margin-top: 20px;">
+                                <div class="reasoning-card">
+                                    <div class="reasoning-title">
+                                        ❌ 主要问题
+                                    </div>
+                                    <ul class="issues-list">
+                                        ${issues.map(issue =>
+                                            `<li class="issue-item">${issue}</li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div id="details-${question.id}" class="hidden">
+                            ${reasoningHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Toggle question details
+        function toggleQuestionDetails(id) {
+            const details = document.getElementById(`details-${id}`);
+            if (details) {
+                details.classList.toggle('hidden');
+            }
+        }
+
+        // Modal functions
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = '添加研究问题';
+            document.getElementById('questionForm').reset();
+            document.getElementById('questionModal').classList.add('active');
+        }
+
+        function openEditModal(id) {
+            editingId = id;
+            const question = questions.find(q => q.id === id);
+            if (!question) return;
+
+            document.getElementById('modalTitle').textContent = '编辑研究问题';
+            document.getElementById('questionText').value = question.text;
+            document.getElementById('questionType').value = question.type;
+            document.getElementById('analysisNotes').value = question.analysis_notes || '';
+            document.getElementById('questionModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('questionModal').classList.remove('active');
+            editingId = null;
+        }
+
+        // Form submission
+        document.getElementById('questionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const text = document.getElementById('questionText').value;
+            const type = document.getElementById('questionType').value;
+            const notes = document.getElementById('analysisNotes').value;
+
+            if (editingId) {
+                // Edit existing
+                const index = questions.findIndex(q => q.id === editingId);
+                if (index !== -1) {
+                    questions[index].text = text;
+                    questions[index].type = type;
+                    questions[index].analysis_notes = notes;
+                }
+            } else {
+                // Add new
+                const newQuestion = {
+                    id: 'q' + Date.now(),
+                    text: text,
+                    type: type,
+                    answerability: {
+                        status: 'unknown',
+                        confidence: 0,
+                        issues: [],
+                        reasoning: {
+                            summary: '需要进一步评估',
+                            data_availability: [],
+                            methodology: [],
+                            limitations: []
+                        }
+                    },
+                    created_at: new Date().toISOString(),
+                    analysis_notes: notes
+                };
+                questions.push(newQuestion);
+            }
+
+            saveQuestions();
+            updateSummary();
+            renderQuestions();
+            closeModal();
+        });
+
+        // Utility functions
+        function getTypeLabel(type) {
+            const labels = {
+                'causal_effect': '因果效应',
+                'comparative': '比较分析',
+                'dose_response': '剂量反应',
+                'optimization': '优化问题',
+                'prediction': '预测分析',
+                'correlation': '相关性分析'
+            };
+            return labels[type] || type;
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'answerable': '✅ 可回答',
+                'partial': '⚠️ 部分可答',
+                'unanswerable': '❌ 无法回答',
+                'unknown': '❓ 待评估'
+            };
+            return labels[status] || status;
+        }
+
+        function deleteQuestion(id) {
+            if (confirm('确定要删除这个问题吗？')) {
+                questions = questions.filter(q => q.id !== id);
+                saveQuestions();
+                updateSummary();
+                renderQuestions();
+            }
+        }
+
+        function exportQuestions() {
+            const data = {
+                schema_version: '1.0.0',
+                hypothesis_set_id: 'user_questions_' + Date.now(),
+                subject_id: 'user',
+                time_zone: 'America/Los_Angeles',
+                hypotheses: questions,
+                generated_at: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'research_questions.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('questionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

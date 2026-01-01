@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/glyco-map/schemas/1.0.0/question.schema.json",
+  "title": "Causal Question",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "question_id",
+    "subject_id",
+    "time_zone",
+    "type",
+    "exposure",
+    "comparison",
+    "outcome",
+    "condition",
+    "time_span",
+    "assumptions"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "question_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "time_zone": {
+      "$ref": "#/$defs/time_zone"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["causal_comparison"]
+    },
+    "exposure": {
+      "$ref": "#/$defs/exposure_definition"
+    },
+    "comparison": {
+      "$ref": "#/$defs/exposure_definition"
+    },
+    "outcome": {
+      "$ref": "#/$defs/outcome_metric"
+    },
+    "condition": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/condition"
+      }
+    },
+    "time_span": {
+      "$ref": "#/$defs/time_span"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "time_zone": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+.-]+/[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)?$",
+      "description": "IANA time zone name such as America/Los_Angeles."
+    },
+    "date_time_tz": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+      "description": "RFC 3339 timestamp with explicit timezone (Z or offset)."
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "operator", "value"],
+      "properties": {
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["=", "<", ">", "<=", ">=", "between", "in", "exists"]
+        },
+        "value": {
+          "oneOf": [
+            {"type": "number"},
+            {"type": "string"},
+            {"type": "boolean"},
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {"type": "number"},
+                  {"type": "string"},
+                  {"type": "boolean"}
+                ]
+              }
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "exposure_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "selector"],
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selector": {
+          "$ref": "#/$defs/selector"
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_to", "start_offset_minutes", "end_offset_minutes"],
+      "properties": {
+        "relative_to": {
+          "type": "string",
+          "enum": ["event_start", "event_end"]
+        },
+        "start_offset_minutes": {
+          "type": "number"
+        },
+        "end_offset_minutes": {
+          "type": "number"
+        }
+      }
+    },
+    "outcome_metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric_name", "window", "unit"],
+      "properties": {
+        "metric_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "window": {
+          "$ref": "#/$defs/window"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "operator", "value"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["=", "<", ">", "<=", ">=", "between", "in", "exists"]
+        },
+        "value": {
+          "oneOf": [
+            {"type": "number"},
+            {"type": "string"},
+            {"type": "boolean"},
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {"type": "number"},
+                  {"type": "string"},
+                  {"type": "boolean"}
+                ]
+              }
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "time_span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_time", "end_time"],
+      "properties": {
+        "start_time": {
+          "$ref": "#/$defs/date_time_tz"
+        },
+        "end_time": {
+          "$ref": "#/$defs/date_time_tz"
+        }
+      }
+    }
+  }
+}

@@ -109,6 +109,36 @@ The report analyzes:
 - **Suspicious Changes**: Rapid drops or spikes
 - **Quality Flags**: Distribution of flagged samples
 
+### Calculating Event Metrics
+
+Calculate windowed metrics around meal/intervention events:
+
+```bash
+python -m cgm_metrics.cli cgm_data.json events.json \
+  --metric-set-id experiment_week_1 \
+  --output metrics.json
+```
+
+Each metric includes:
+- **Window definition**: Time window relative to event start/end
+- **Coverage ratio**: Proportion of expected samples available
+- **Computation version**: Semantic version for reproducibility
+
+**Example output fields per metric:**
+- `event_id`: Links metric to specific event
+- `metric_name`: One of [baseline_glucose, delta_peak, iAUC, time_to_peak, recovery_slope]
+- `value`: Computed metric value
+- `unit`: Unit of measurement
+- `coverage_ratio`: 0.0 to 1.0 (1.0 = all samples present)
+- `quality_flags`: e.g., ["low_coverage", "missing_data"]
+- `quality_summary`: Additional details for interpretation
+
+**Metric Coverage Guidelines:**
+- > 90%: Excellent, highly reliable
+- 70-90%: Good, acceptable for most analyses
+- 50-70%: Marginal, use with caution
+- < 50%: Poor, exclude from analysis
+
 ### Parameters
 
 - `input`: Path to the XLSX file (required)
@@ -133,6 +163,18 @@ python -m cgm_importer.cli cgm_data.xlsx \
 python -m cgm_importer.sanity_cli cgm_data.json \
   -o sanity_report.json \
   --pretty
+
+# Create meal events
+python -m cgm_events.cli events.json \
+  -s subject_001 \
+  -z America/New_York \
+  --multiple
+
+# Calculate event metrics
+python -m cgm_metrics.cli cgm_data.json events.json \
+  --metric-set-id week_1_experiment \
+  --output metrics.json \
+  --verbose
 
 # Process with timezone from environment variable
 export CGM_TZ=Europe/London
@@ -291,6 +333,18 @@ The package is structured into:
 - `cgm_events/events.py`: Event creation and validation
 - `cgm_events/cli.py`: CLI for creating meal/intervention events
 - `test_events.py`: Test suite for events
+
+### Event Metrics
+- `cgm_metrics/event_metrics.py`: Per-event windowed metrics calculation
+  - **baseline_glucose**: Mean glucose in pre-event window
+  - **delta_peak**: Peak change from baseline (ΔPeak)
+  - **iAUC**: Incremental area under curve above baseline
+  - **time_to_peak**: Minutes from event start to peak glucose
+  - **recovery_slope**: Rate of glucose decline post-peak
+- `cgm_metrics/cli.py`: CLI for calculating metrics from CGM and events
+  - Each metric includes: window definition, coverage ratio, computation version
+  - Handles missing data and annotates quality flags
+- `test_metrics.py`: Comprehensive test suite for all metrics
 
 ### Schemas
 - `schemas/cgm-time-series.schema.json`: CGM time series format

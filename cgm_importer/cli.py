@@ -147,7 +147,11 @@ def main():
         print(f"  Detected sampling interval: {sampling_interval:.1f} minutes", file=sys.stderr)
 
         # Detect artifacts
-        quality_flags = importer.detect_artifacts(df["glucose_value"], unit=args.unit)
+        quality_flags = importer.detect_artifacts(
+            df["glucose_value"],
+            unit=args.unit,
+            sampling_interval_minutes=sampling_interval,
+        )
         flags_count = sum(1 for flags in quality_flags if flags)
         print(f"  Annotated {flags_count} samples with quality flags", file=sys.stderr)
 

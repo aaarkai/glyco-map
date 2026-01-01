@@ -21,42 +21,42 @@ def create_test_schema():
         "sampling_interval_minutes": 5.0,
         "samples": [
             {
-                "timestamp": "2025-01-01T08:00:00-08:00",
+                "timestamp": "2025-01-01T08:00:00Z",
                 "glucose_value": 5.5,
                 "sample_index": 0
             },
             {
-                "timestamp": "2025-01-01T08:05:00-08:00",
+                "timestamp": "2025-01-01T08:05:00Z",
                 "glucose_value": 5.8,
                 "sample_index": 1
             },
             {
-                "timestamp": "2025-01-01T08:10:00-08:00",
+                "timestamp": "2025-01-01T08:10:00Z",
                 "glucose_value": 6.2,
                 "sample_index": 2
             },
             {
-                "timestamp": "2025-01-01T08:15:00-08:00",
+                "timestamp": "2025-01-01T08:15:00Z",
                 "glucose_value": 10.5,  # Spike
                 "sample_index": 3
             },
             {
-                "timestamp": "2025-01-01T08:20:00-08:00",
+                "timestamp": "2025-01-01T08:20:00Z",
                 "glucose_value": 6.0,
                 "sample_index": 4
             },
             {
-                "timestamp": "2025-01-01T08:40:00-08:00",  # Gap
+                "timestamp": "2025-01-01T08:40:00Z",  # Gap
                 "glucose_value": 5.5,
                 "sample_index": 5
             },
             {
-                "timestamp": "2025-01-01T08:45:00-08:00",
+                "timestamp": "2025-01-01T08:45:00Z",
                 "glucose_value": 5.5,
                 "sample_index": 6
             },
             {
-                "timestamp": "2025-01-01T08:50:00-08:00",
+                "timestamp": "2025-01-01T08:50:00Z",
                 "glucose_value": 2.5,  # Low value
                 "sample_index": 7
             }

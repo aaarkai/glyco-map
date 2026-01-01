@@ -18,6 +18,17 @@ class CGMSanityReport:
     def __init__(self):
         pass
 
+    def _parse_timestamp(self, value: str) -> datetime:
+        """
+        Parse RFC 3339 timestamps, including Z suffix.
+        """
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            if value.endswith("Z") or value.endswith("z"):
+                return datetime.fromisoformat(value[:-1] + "+00:00")
+            raise
+
     def load_schema(self, filepath: str) -> Dict[str, Any]:
         """
         Load CGM time series schema from JSON file.
@@ -59,12 +70,19 @@ class CGMSanityReport:
             }
 
         # Parse timestamps
-        timestamps = [datetime.fromisoformat(s["timestamp"]) for s in samples]
+        timestamps = [self._parse_timestamp(s["timestamp"]) for s in samples]
 
         # Calculate expected vs actual intervals
         time_span_minutes = (timestamps[-1] - timestamps[0]).total_seconds() / 60
-        expected_intervals = time_span_minutes / expected_interval_minutes
+        expected_intervals_float = (
+            time_span_minutes / expected_interval_minutes
+            if expected_interval_minutes > 0
+            else 0
+        )
         actual_intervals = len(samples) - 1
+        expected_intervals = int(round(expected_intervals_float)) if expected_intervals_float > 0 else 0
+        if expected_intervals < actual_intervals:
+            expected_intervals = actual_intervals
 
         # Count gaps larger than 1.5x expected interval
         gaps = 0
@@ -77,8 +95,8 @@ class CGMSanityReport:
             "total_expected_minutes": time_span_minutes,
             "total_actual_minutes": actual_intervals * expected_interval_minutes,
             "coverage_percentage": (actual_intervals / expected_intervals) * 100 if expected_intervals > 0 else 0,
-            "missing_intervals": int(expected_intervals - actual_intervals),
-            "total_intervals": int(expected_intervals),
+            "missing_intervals": max(expected_intervals - actual_intervals, 0),
+            "total_intervals": expected_intervals,
             "large_gaps": gaps
         }
 
@@ -103,7 +121,7 @@ class CGMSanityReport:
             }
 
         # Parse timestamps and calculate intervals
-        timestamps = [datetime.fromisoformat(s["timestamp"]) for s in samples]
+        timestamps = [self._parse_timestamp(s["timestamp"]) for s in samples]
         intervals = []
 
         for i in range(1, len(timestamps)):

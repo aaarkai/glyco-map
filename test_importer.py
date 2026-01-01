@@ -225,6 +225,43 @@ class TestCGMImporter(unittest.TestCase):
 
         self.assertIn("duplicate", str(ctx.exception))
 
+    def test_series_id_changes_with_timezone_and_unit(self):
+        """Test that series_id changes when timezone or unit changes."""
+        timestamps = pd.to_datetime([
+            "2024-01-01 08:00",
+            "2024-01-01 08:05",
+            "2024-01-01 08:10",
+        ])
+        df = pd.DataFrame({
+            "timestamp": timestamps,
+            "glucose_value": [95, 100, 105]
+        })
+
+        schema_la = self.importer.convert_to_schema(
+            df,
+            subject_id="test-subject-1",
+            device_id="test-device-1",
+            timezone="America/Los_Angeles",
+            unit="mg/dL"
+        )
+        schema_utc = self.importer.convert_to_schema(
+            df,
+            subject_id="test-subject-1",
+            device_id="test-device-1",
+            timezone="UTC",
+            unit="mg/dL"
+        )
+        schema_mmoll = self.importer.convert_to_schema(
+            df,
+            subject_id="test-subject-1",
+            device_id="test-device-1",
+            timezone="America/Los_Angeles",
+            unit="mmol/L"
+        )
+
+        self.assertNotEqual(schema_la["series_id"], schema_utc["series_id"])
+        self.assertNotEqual(schema_la["series_id"], schema_mmoll["series_id"])
+
 def run_tests():
     """Run the test suite."""
     unittest.main(verbosity=2)

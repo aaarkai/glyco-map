@@ -161,13 +161,19 @@ class CGM_XLSX_Importer:
 
         return float(median_interval)
 
-    def detect_artifacts(self, glucose_values: pd.Series, unit: str = "mg/dL") -> List[List[str]]:
+    def detect_artifacts(
+        self,
+        glucose_values: pd.Series,
+        unit: str = "mg/dL",
+        sampling_interval_minutes: Optional[float] = None,
+    ) -> List[List[str]]:
         """
         Detect common CGM sensor artifacts and quality issues.
 
         Args:
             glucose_values: Series of glucose values
             unit: Glucose unit ('mg/dL' or 'mmol/L')
+            sampling_interval_minutes: Minutes between samples, for threshold scaling
 
         Returns:
             List of quality flag lists for each sample
@@ -175,11 +181,17 @@ class CGM_XLSX_Importer:
         quality_flags = [[] for _ in range(len(glucose_values))]
 
         # Define artifact detection thresholds based on unit
-        # 3 mmol/L ≈ 54 mg/dL - this is a very large physiologic jump
+        # 3 mmol/L ≈ 54 mg/dL per 5-minute sample is a very large physiologic jump
         if unit == "mmol/L":
-            jump_threshold = 3.0  # mmol/L
+            base_jump_threshold = 3.0  # mmol/L
         else:  # mg/dL
-            jump_threshold = 54.0  # mg/dL
+            base_jump_threshold = 54.0  # mg/dL
+
+        interval_scale = 1.0
+        if sampling_interval_minutes and sampling_interval_minutes > 0:
+            interval_scale = sampling_interval_minutes / 5.0
+
+        jump_threshold = base_jump_threshold * interval_scale
 
         for i, value in enumerate(glucose_values):
             flags = []
@@ -232,21 +244,14 @@ class CGM_XLSX_Importer:
         sampling_interval = self.detect_sampling_interval(df["timestamp"])
 
         # Detect artifacts
-        detected_flags = self.detect_artifacts(df["glucose_value"], unit)
+        detected_flags = self.detect_artifacts(
+            df["glucose_value"],
+            unit=unit,
+            sampling_interval_minutes=sampling_interval,
+        )
 
         # Get pre-existing quality flags from read_xlsx
         pre_flags = df.get("quality_flags", [[] for _ in range(len(df))])
-
-        # Generate series ID based on actual content for provenance
-        # Hash includes timestamps and values to ensure uniqueness per dataset
-        content_for_hash = []
-        for _, row in df.iterrows():
-            content_for_hash.append(f"{row['timestamp'].isoformat()}:{row['glucose_value']:.6f}")
-
-        series_hash = hashlib.sha256(
-            f"{subject_id}_{device_id}_{';'.join(content_for_hash)}".encode()
-        ).hexdigest()[:16]
-        series_id = f"cgm_{series_hash}"
 
         # Convert timestamps to ISO format with timezone
         timestamps_iso = [
@@ -255,6 +260,17 @@ class CGM_XLSX_Importer:
             else ts.tz_convert(timezone).isoformat()
             for ts in df["timestamp"]
         ]
+
+        # Generate series ID based on localized timestamps and values for provenance
+        content_for_hash = [
+            f"{ts_iso}:{value:.6f}"
+            for ts_iso, value in zip(timestamps_iso, df["glucose_value"])
+        ]
+
+        series_hash = hashlib.sha256(
+            f"{subject_id}_{device_id}_{timezone}_{unit}_{';'.join(content_for_hash)}".encode()
+        ).hexdigest()[:16]
+        series_id = f"cgm_{series_hash}"
 
         # Build samples array
         samples = []

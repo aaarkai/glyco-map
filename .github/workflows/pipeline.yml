@@ -25,10 +25,10 @@ on:
         required: true
       subject_id:
         description: "Subject identifier"
-        required: true
+        required: false
       device_id:
         description: "Device identifier"
-        required: true
+        required: false
       timezone:
         description: "IANA timezone"
         default: "Asia/Shanghai"
@@ -83,11 +83,14 @@ jobs:
           TIMEZONE="${{ inputs.timezone || vars.TIMEZONE || 'Asia/Shanghai' }}"
           UNIT="${{ inputs.unit || 'mg/dL' }}"
 
-          if [ -z "$SUBJECT_ID" ] || [ -z "$DEVICE_ID" ]; then
-            echo "SUBJECT_ID and DEVICE_ID are required (set workflow inputs or repo variables)."
-            exit 1
+          SUBJECT_ARG=""
+          DEVICE_ARG=""
+          if [ -n "$SUBJECT_ID" ]; then
+            SUBJECT_ARG="--subject-id $SUBJECT_ID"
           fi
-
+          if [ -n "$DEVICE_ID" ]; then
+            DEVICE_ARG="--device-id $DEVICE_ID"
+          fi
           EVENTS_ARG=""
           EVENTS_TEXT_ARG=""
           QUESTION_ARG=""
@@ -106,8 +109,8 @@ jobs:
             $EVENTS_ARG \
             $EVENTS_TEXT_ARG \
             $QUESTION_ARG \
-            --subject-id "$SUBJECT_ID" \
-            --device-id "$DEVICE_ID" \
+            $SUBJECT_ARG \
+            $DEVICE_ARG \
             --timezone "$TIMEZONE" \
             --unit "$UNIT" \
             --pretty \
@@ -138,14 +141,19 @@ jobs:
           cd publish_repo
           git checkout "$PUBLISH_BRANCH"
           mkdir -p "$PUBLISH_PATH"
-          cp "../$OUTPUT_DIR/report.json" "$PUBLISH_PATH/report.json"
-          cp "../$OUTPUT_DIR/report.md" "$PUBLISH_PATH/report.md"
+          cp "../web/index.html" "$PUBLISH_PATH/index.html"
           cp "../$OUTPUT_DIR/cgm.json" "$PUBLISH_PATH/cgm.json"
           if [ -f "../$OUTPUT_DIR/events.json" ]; then
             cp "../$OUTPUT_DIR/events.json" "$PUBLISH_PATH/events.json"
           fi
           if [ -f "../$OUTPUT_DIR/metrics.json" ]; then
             cp "../$OUTPUT_DIR/metrics.json" "$PUBLISH_PATH/metrics.json"
+          fi
+          if [ -f "../$OUTPUT_DIR/report.json" ]; then
+            cp "../$OUTPUT_DIR/report.json" "$PUBLISH_PATH/report.json"
+          fi
+          if [ -f "../$OUTPUT_DIR/report.md" ]; then
+            cp "../$OUTPUT_DIR/report.md" "$PUBLISH_PATH/report.md"
           fi
           git add "$PUBLISH_PATH"
           if git diff --cached --quiet; then

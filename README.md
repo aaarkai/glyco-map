@@ -163,8 +163,6 @@ Run a full pipeline from XLSX to answerability report:
 
 ```bash
 python -m cgm_pipeline.cli data.xlsx output/ \
-  --subject-id subject_001 \
-  --device-id dexcom_g7_sn12345 \
   --timezone Asia/Shanghai \
   --unit mg/dL \
   --markdown \
@@ -178,8 +176,6 @@ Optional inputs:
 python -m cgm_pipeline.cli data.xlsx output/ \
   --events-file data/events.json \
   --question-file data/question.json \
-  --subject-id subject_001 \
-  --device-id dexcom_g7_sn12345 \
   --timezone Asia/Shanghai
 ```
 
@@ -189,8 +185,6 @@ Parse event text inline:
 python -m cgm_pipeline.cli data.xlsx output/ \
   --events-text data/events.txt \
   --events-text-type meal \
-  --subject-id subject_001 \
-  --device-id dexcom_g7_sn12345 \
   --timezone Asia/Shanghai
 ```
 
@@ -215,7 +209,7 @@ Recommended upload location:
 - `data/question.json` (optional)
 
 When you push changes under `data/`, the workflow triggers automatically.
-Set these repository variables in GitHub Actions:
+Set these repository variables in GitHub Actions (optional):
 
 - `SUBJECT_ID`
 - `DEVICE_ID`

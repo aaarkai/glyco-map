@@ -14,6 +14,7 @@ from cgm_importer.sanity_report import CGMSanityReport
 from cgm_metrics.cli import calculate_event_metrics
 from cgm_questions.answerability import QuestionAnswerabilityEvaluator
 from cgm_events.text_parser import CGMEventTextParser
+import re
 
 
 def load_json(path: Path) -> dict:
@@ -27,6 +28,14 @@ def load_json(path: Path) -> dict:
 def write_json(path: Path, payload: dict, pretty: bool) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2 if pretty else None, ensure_ascii=False)
+
+
+def derive_device_id(path: Path) -> str:
+    stem = path.stem
+    parts = stem.split("-")
+    if len(parts) > 1 and re.match(r"^\d+(?:\.\d+)+$", parts[-1]):
+        return "-".join(parts[:-1])
+    return stem
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -48,8 +57,8 @@ Examples:
     parser.add_argument("--events-text-type", default="meal", help="Event type for parsed text events")
     parser.add_argument("--question-file", type=str, help="Path to question JSON file (optional)")
 
-    parser.add_argument("--subject-id", required=True, help="Subject identifier")
-    parser.add_argument("--device-id", required=True, help="CGM device identifier")
+    parser.add_argument("--subject-id", help="Subject identifier (optional)")
+    parser.add_argument("--device-id", help="CGM device identifier (optional)")
     parser.add_argument("--timezone", required=True, help="IANA timezone name")
     parser.add_argument("--unit", choices=["mg/dL", "mmol/L"], default="mg/dL")
     parser.add_argument("--metric-set-id", type=str, help="Metric set identifier")
@@ -133,6 +142,9 @@ def main() -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    subject_id = args.subject_id or "subject"
+    device_id = args.device_id or derive_device_id(xlsx_path)
+
     if args.verbose:
         print("Importing CGM XLSX...", file=sys.stderr)
 
@@ -140,8 +152,8 @@ def main() -> None:
     df = importer.read_xlsx(str(xlsx_path))
     cgm_data = importer.convert_to_schema(
         df,
-        subject_id=args.subject_id,
-        device_id=args.device_id,
+        subject_id=subject_id,
+        device_id=device_id,
         timezone=args.timezone,
         unit=args.unit,
     )
@@ -230,8 +242,8 @@ def main() -> None:
             "events_file": str(events_path_used) if events_path_used is not None else None,
             "events_text_file": str(events_text_path) if events_text_path is not None else None,
             "question_file": str(question_path) if question_path is not None else None,
-            "subject_id": args.subject_id,
-            "device_id": args.device_id,
+            "subject_id": subject_id,
+            "device_id": device_id,
             "time_zone": args.timezone,
             "unit": args.unit,
         },

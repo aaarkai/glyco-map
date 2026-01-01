@@ -676,9 +676,14 @@
 
       async function render() {
         const casesIndex = await loadJson(CASE_INDEX_URL);
-        const cases = casesIndex?.cases?.length
-          ? casesIndex.cases
-          : [{ title: "Latest run", path: "../output" }];
+        let cases = [];
+
+        if (casesIndex?.cases?.length) {
+          cases = casesIndex.cases;
+        } else {
+          const defaultPath = await resolveDefaultPath();
+          cases = [{ title: "Latest run", path: defaultPath }];
+        }
 
         const root = document.getElementById("cases");
         root.innerHTML = "";
@@ -689,6 +694,14 @@
       }
 
       render();
+
+      async function resolveDefaultPath() {
+        const outputCase = await loadJson("../output/cgm.json");
+        if (outputCase) return "../output";
+        const localCase = await loadJson("./cgm.json");
+        if (localCase) return ".";
+        return "../output";
+      }
     </script>
   </body>
 </html>

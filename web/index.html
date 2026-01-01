@@ -346,6 +346,13 @@
         return trimmed.slice(0, 16);
       }
 
+      function formatDateLabel(date) {
+        const pad = (num) => String(num).padStart(2, "0");
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+          date.getHours()
+        )}:${pad(date.getMinutes())}`;
+      }
+
       function safeMinMax(values) {
         let min = Infinity;
         let max = -Infinity;
@@ -378,6 +385,28 @@
         }
       }
 
+      function drawTimeAxis(ctx, minTime, maxTime, xScale, padding, height) {
+        const tickCount = 5;
+        const span = maxTime - minTime || 1;
+        ctx.strokeStyle = "rgba(31, 26, 20, 0.25)";
+        ctx.fillStyle = "#6f6255";
+        ctx.font = "11px Literata, serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const yTick = height - padding;
+        const yLabel = yTick + 10;
+
+        for (let i = 0; i < tickCount; i++) {
+          const t = minTime + (span * i) / (tickCount - 1);
+          const x = xScale(t);
+          ctx.beginPath();
+          ctx.moveTo(x, yTick);
+          ctx.lineTo(x, yTick + 6);
+          ctx.stroke();
+          ctx.fillText(formatDateLabel(new Date(t)), x, yLabel);
+        }
+      }
+
       function drawLine(ctx, points) {
         ctx.strokeStyle = "#c04a2b";
         ctx.lineWidth = 2;
@@ -391,16 +420,12 @@
 
       function drawEvents(ctx, events, xScale, padding, height) {
         ctx.strokeStyle = "rgba(31, 26, 20, 0.32)";
-        ctx.fillStyle = "#1f1a14";
-        ctx.font = "12px Literata, serif";
         events.forEach((event, idx) => {
           const x = xScale(parseTimestamp(event.start_time));
           ctx.beginPath();
           ctx.moveTo(x, padding);
           ctx.lineTo(x, height - padding);
           ctx.stroke();
-          const label = event.label || event.event_id || `event-${idx + 1}`;
-          ctx.fillText(label, x + 4, padding + 14);
         });
       }
 
@@ -620,6 +645,8 @@
         if (events.length) {
           drawEvents(ctx, events, xScale, padding, height);
         }
+
+        drawTimeAxis(ctx, minTime, maxTime, xScale, padding, height);
 
         const details = document.createElement("div");
         details.className = "case-details two-up";

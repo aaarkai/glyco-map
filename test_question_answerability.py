@@ -182,6 +182,46 @@ class TestQuestionAnswerability(unittest.TestCase):
         codes = [r["code"] for r in result["reasons"]]
         self.assertIn("insufficient_repeats_exposure", codes)
 
+    def test_time_of_day_in_condition(self):
+        question = self._base_question()
+        question["condition"] = [{
+            "name": "time_of_day",
+            "operator": "in",
+            "value": ["08:00", "09:00"],
+            "unit": "local_time"
+        }]
+
+        events_data = {
+            "subject_id": "test_subject",
+            "events": [
+                self._make_event("evt_x1", "food_x", 0),
+                self._make_event("evt_x2", "food_x", 60),
+                self._make_event("evt_y1", "food_y", 120),
+                self._make_event("evt_y2", "food_y", 180),
+            ]
+        }
+        metrics_data = {
+            "subject_id": "test_subject",
+            "metrics": [
+                self._make_metric("evt_x1", "iAUC"),
+                self._make_metric("evt_x2", "iAUC"),
+                self._make_metric("evt_y1", "iAUC"),
+                self._make_metric("evt_y2", "iAUC"),
+            ]
+        }
+
+        result = self.evaluator.evaluate(question, events_data, metrics_data)
+        self.assertTrue(result["answerable"])
+
+    def test_unsupported_metric_delta_peak(self):
+        question = self._base_question()
+        question["outcome"]["metric_name"] = "delta_peak"
+
+        result = self.evaluator.evaluate(question, {"events": []}, {"metrics": []})
+        self.assertFalse(result["answerable"])
+        codes = [r["code"] for r in result["reasons"]]
+        self.assertIn("unsupported_metric", codes)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

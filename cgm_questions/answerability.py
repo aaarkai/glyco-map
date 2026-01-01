@@ -45,16 +45,44 @@ class QuestionAnswerabilityEvaluator:
         time_zone = question.get("time_zone")
         question_id = question.get("question_id", "unknown")
 
+        metric_name = question["outcome"]["metric_name"]
         summary = {
             "question_id": question_id,
             "subject_id": subject_id,
-            "metric_name": question["outcome"]["metric_name"],
+            "metric_name": metric_name,
             "metric_window": question["outcome"].get("window"),
             "time_span": question.get("time_span"),
             "min_events_per_group": self.min_events_per_group,
             "min_metric_coverage": self.min_metric_coverage,
             "min_isolation_minutes": self.min_isolation_minutes,
         }
+
+        if metric_name == "delta_peak":
+            reasons.append(self._reason(
+                "unsupported_metric",
+                "delta_peak uses composite windows and is not supported for question evaluation.",
+                blocking=True,
+            ))
+            data_requirements.append({
+                "type": "use_supported_metric",
+                "detail": "Use a metric with a single outcome window (e.g., iAUC, baseline_glucose).",
+                "metric_name": metric_name,
+            })
+            return {
+                "evaluation_version": "1.0.0",
+                "question_id": question_id,
+                "subject_id": subject_id,
+                "answerable": False,
+                "summary": summary,
+                "reasons": reasons,
+                "data_requirements": data_requirements,
+                "match_stats": {
+                    "exposure": None,
+                    "comparison": None,
+                    "confounded_event_ids": [],
+                    "overlap_event_ids": [],
+                },
+            }
 
         if events_data.get("subject_id") and subject_id and events_data.get("subject_id") != subject_id:
             reasons.append(self._reason(
@@ -256,7 +284,8 @@ class QuestionAnswerabilityEvaluator:
             event_start, _ = self._parse_event_times(event)
             event_time = event_start.timetz()
             event_minutes = event_time.hour * 60 + event_time.minute
-            return self._compare(condition.get("operator"), event_minutes, self._time_value(condition.get("value")))
+            normalized_value = self._normalize_time_value(condition.get("value"))
+            return self._compare(condition.get("operator"), event_minutes, normalized_value)
 
         value, unit = self._resolve_component(event, name)
         if value is None:
@@ -348,6 +377,11 @@ class QuestionAnswerabilityEvaluator:
             if len(parts) >= 2:
                 return int(parts[0]) * 60 + int(parts[1])
         return value
+
+    def _normalize_time_value(self, value: Any) -> Any:
+        if isinstance(value, list):
+            return [self._time_value(item) for item in value]
+        return self._time_value(value)
 
     def _between(self, candidate: Any, lower: Any, upper: Any) -> bool:
         if lower is None or upper is None:

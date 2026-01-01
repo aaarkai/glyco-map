@@ -26,6 +26,17 @@ class EventQualityEvaluator:
         self.min_during_coverage = 0.8  # Need 80% coverage during event
         self.min_baseline_coverage = 0.9  # Need 90% coverage in baseline period
 
+    def _parse_timestamp(self, value: str) -> datetime:
+        """
+        Parse RFC 3339 timestamps, including Z suffix.
+        """
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            if value.endswith("Z") or value.endswith("z"):
+                return datetime.fromisoformat(value[:-1] + "+00:00")
+            raise
+
     def load_cgm_data(self, filepath: str) -> Dict[str, Any]:
         """
         Load CGM time series data from JSON file.
@@ -73,7 +84,7 @@ class EventQualityEvaluator:
         timestamps = []
         for sample in cgm_data.get('samples', []):
             try:
-                ts = datetime.fromisoformat(sample['timestamp'])
+                ts = self._parse_timestamp(sample['timestamp'])
                 timestamps.append(ts)
             except ValueError:
                 # Skip invalid timestamps
@@ -91,14 +102,14 @@ class EventQualityEvaluator:
             Tuple of (start_time, end_time_or_none)
         """
         try:
-            start_time = datetime.fromisoformat(event['start_time'])
+            start_time = self._parse_timestamp(event['start_time'])
         except (KeyError, ValueError) as e:
             raise ValueError(f"Invalid event start_time: {e}")
 
         end_time = None
         if 'end_time' in event:
             try:
-                end_time = datetime.fromisoformat(event['end_time'])
+                end_time = self._parse_timestamp(event['end_time'])
             except ValueError as e:
                 raise ValueError(f"Invalid event end_time: {e}")
 

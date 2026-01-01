@@ -353,6 +353,11 @@ class CGMEventMetrics:
         self,
         cgm_data: Dict[str, Any],
         event: Dict[str, Any],
+        baseline_window: Dict[str, Any] = {
+            "relative_to": "event_start",
+            "start_offset_minutes": -30,
+            "end_offset_minutes": 0
+        },
         peak_window: Dict[str, Any] = {
             "relative_to": "event_start",
             "start_offset_minutes": 0,
@@ -365,10 +370,10 @@ class CGMEventMetrics:
         }
     ) -> Dict[str, Any]:
         """
-        Calculate recovery slope (rate of glucose decline after peak).
+        Calculate recovery slope (rate of glucose change after peak).
 
-        Positive slope indicates recovery, negative indicates continued rise,
-        values near zero indicate no clear recovery pattern.
+        Negative slope indicates recovery (declining glucose), positive indicates
+        continued rise. Values near zero indicate no clear recovery pattern.
 
         Args:
             cgm_data: CGM time series with samples
@@ -379,6 +384,13 @@ class CGMEventMetrics:
         Returns:
             Metric result with recovery slope (unit per minute)
         """
+        baseline_value = None
+        try:
+            baseline_result = self.calculate_baseline_glucose(cgm_data, event, baseline_window)
+            baseline_value = baseline_result["value"]
+        except CGMEventMetricsError:
+            baseline_result = None
+
         peak_samples, peak_coverage, peak_quality_flags = self._extract_window_samples(
             cgm_data, event["start_time"], peak_window
         )
@@ -413,16 +425,17 @@ class CGMEventMetrics:
         end_recovery_value = slope * recovery_times_min[-1] + intercept
 
         return_percentage = None
-        if start_recovery_value > 0:
-            return_percentage = (peak_value - end_recovery_value) / (peak_value - start_recovery_value) * 100
+        if baseline_value is not None and peak_value != baseline_value:
+            return_percentage = (peak_value - end_recovery_value) / (peak_value - baseline_value) * 100
 
         expected_peak_samples = self._calculate_expected_samples(peak_window, cgm_data.get("sampling_interval_minutes", 5.0))
         expected_recovery_samples = self._calculate_expected_samples(recovery_window, cgm_data.get("sampling_interval_minutes", 5.0))
 
         method_desc = (
             f"Linear regression slope during recovery window after peak glucose. "
-            f"Slope > 0 indicates declining glucose (recovery), "
-            f"slope < 0 indicates continued rise."
+            f"Slope < 0 indicates declining glucose (recovery), "
+            f"slope > 0 indicates continued rise. "
+            f"Return percentage compares end of recovery to baseline when available."
         )
 
         all_quality_flags = list(set(peak_quality_flags + recovery_quality_flags))
@@ -443,9 +456,11 @@ class CGMEventMetrics:
             "quality_flags": all_quality_flags,
             "quality_summary": {
                 "peak_glucose": float(peak_value),
+                "baseline_glucose": float(baseline_value) if baseline_value is not None else None,
                 "recovery_start": float(start_recovery_value),
                 "recovery_end": float(end_recovery_value),
                 "return_toward_baseline_percentage": float(return_percentage) if return_percentage is not None else None,
+                "baseline_window": baseline_window,
                 "peak_window_samples": len(peak_samples),
                 "peak_expected_samples": expected_peak_samples,
                 "recovery_window_samples": len(recovery_samples),

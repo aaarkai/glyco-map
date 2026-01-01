@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CGM Signal + Events Explorer</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;600&family=Syne:wght@400;600;700&display=swap");
+
+      :root {
+        color-scheme: light;
+        --ink: #1f1a14;
+        --muted: #6f6255;
+        --canvas: #f6f0e6;
+        --panel: #fff8ee;
+        --accent: #c04a2b;
+        --accent-2: #0f6b6b;
+        --grid: rgba(31, 26, 20, 0.14);
+        --shadow: 0 20px 45px rgba(32, 22, 14, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Literata", "Times New Roman", serif;
+        color: var(--ink);
+        background: var(--canvas);
+      }
+
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(circle at top left, rgba(192, 74, 43, 0.22), transparent 45%),
+          radial-gradient(circle at 80% 20%, rgba(15, 107, 107, 0.2), transparent 42%),
+          linear-gradient(135deg, rgba(255, 248, 238, 0.65), rgba(246, 240, 230, 0.95));
+        z-index: -2;
+      }
+
+      .grain {
+        position: fixed;
+        inset: 0;
+        background-image:
+          url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' stitchTiles='stitch'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.12'/></svg>");
+        mix-blend-mode: multiply;
+        opacity: 0.5;
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      header {
+        padding: 32px 32px 0;
+      }
+
+      .hero {
+        display: grid;
+        gap: 16px;
+        padding: 24px 28px;
+        border-radius: 24px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(31, 26, 20, 0.08);
+        animation: rise 700ms ease forwards;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent-2);
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Syne", "Arial Black", sans-serif;
+        font-size: clamp(28px, 4vw, 40px);
+        letter-spacing: -0.02em;
+      }
+
+      .lede {
+        margin: 0;
+        color: var(--muted);
+        max-width: 60ch;
+      }
+
+      main {
+        padding: 24px 32px 40px;
+        display: grid;
+        gap: 24px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border-radius: 24px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(31, 26, 20, 0.08);
+      }
+
+      .case {
+        display: grid;
+        gap: 16px;
+      }
+
+      .case-head {
+        display: grid;
+        gap: 4px;
+      }
+
+      .case-title {
+        font-family: "Syne", sans-serif;
+        font-size: 18px;
+        margin: 0;
+      }
+
+      .case-meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .stat {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 26, 20, 0.12);
+        background: rgba(255, 255, 255, 0.8);
+        font-size: 12px;
+      }
+
+      .chart-panel {
+        display: grid;
+        gap: 12px;
+      }
+
+      .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .chart-header h2 {
+        margin: 0;
+        font-family: "Syne", sans-serif;
+        font-size: 16px;
+      }
+
+      .legend {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .legend i {
+        width: 14px;
+        height: 2px;
+        background: var(--accent);
+        display: inline-block;
+      }
+
+      canvas {
+        width: 100%;
+        height: 180px;
+        display: block;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      .case-details {
+        display: grid;
+        gap: 16px;
+      }
+
+      .case-details.two-up {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .subpanel h3 {
+        margin: 0 0 12px;
+        font-family: "Syne", sans-serif;
+      }
+
+      .subpanel ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .subpanel li {
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px dashed rgba(31, 26, 20, 0.15);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 13px;
+      }
+
+      .metrics ul {
+        gap: 10px;
+      }
+
+      .metric-card {
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(31, 26, 20, 0.12);
+        background: rgba(255, 255, 255, 0.85);
+      }
+
+      .metric-title {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+        padding: 4px 0;
+        border-bottom: 1px dashed rgba(31, 26, 20, 0.08);
+      }
+
+      .metric-row:last-child {
+        border-bottom: none;
+      }
+
+      .metric-name {
+        font-weight: 600;
+      }
+
+      .metric-value {
+        color: var(--accent-2);
+        font-weight: 600;
+      }
+
+      .metric-detail {
+        color: var(--muted);
+      }
+
+      .metrics-glossary {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .metrics-glossary li {
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(31, 26, 20, 0.12);
+        background: rgba(255, 255, 255, 0.85);
+      }
+
+      .metrics-glossary strong {
+        color: var(--ink);
+        font-family: "Syne", sans-serif;
+        font-weight: 600;
+      }
+
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      footer {
+        padding: 0 32px 32px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 980px) {
+        canvas {
+          height: 200px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <div class="grain"></div>
+    <header>
+      <section class="hero">
+        <div class="title-block">
+          <div class="eyebrow">N-of-1 CGM notebook</div>
+          <h1>Signal + Events Explorer</h1>
+          <p class="lede">
+            Visual inspection of CGM time series with meal events. Load
+            <code>output/cgm.json</code> and optionally <code>output/events.json</code>
+            to verify coverage, timing, and context.
+          </p>
+        </div>
+      </section>
+    </header>
+    <main id="cases"></main>
+    <footer>Data stays local. This viewer reads JSON files from the repo.</footer>
+    <script>
+      const CASE_INDEX_URL = "../output/cases.json";
+
+      function parseTimestamp(value) {
+        return new Date(value);
+      }
+
+      function formatTimestampShort(value) {
+        if (!value || typeof value !== "string") return "unknown time";
+        const trimmed = value.replace("T", " ");
+        return trimmed.slice(0, 16);
+      }
+
+      function safeMinMax(values) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (const value of values) {
+          if (value < min) min = value;
+          if (value > max) max = value;
+        }
+        if (!isFinite(min) || !isFinite(max)) {
+          return [0, 1];
+        }
+        return [min, max];
+      }
+
+      function drawGrid(ctx, width, height, padding, minValue, maxValue) {
+        ctx.strokeStyle = "rgba(31, 26, 20, 0.14)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const y = padding + (height - padding * 2) * (i / 4);
+          ctx.beginPath();
+          ctx.moveTo(padding, y);
+          ctx.lineTo(width - padding, y);
+          ctx.stroke();
+
+          const value = maxValue - (maxValue - minValue) * (i / 4);
+          ctx.fillStyle = "#6f6255";
+          ctx.font = "11px Literata, serif";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillText(value.toFixed(1), padding - 8, y);
+        }
+      }
+
+      function drawLine(ctx, points) {
+        ctx.strokeStyle = "#c04a2b";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach(([x, y], idx) => {
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      function drawEvents(ctx, events, xScale, padding, height) {
+        ctx.strokeStyle = "rgba(31, 26, 20, 0.32)";
+        ctx.fillStyle = "#1f1a14";
+        ctx.font = "12px Literata, serif";
+        events.forEach((event, idx) => {
+          const x = xScale(parseTimestamp(event.start_time));
+          ctx.beginPath();
+          ctx.moveTo(x, padding);
+          ctx.lineTo(x, height - padding);
+          ctx.stroke();
+          const label = event.label || event.event_id || `event-${idx + 1}`;
+          ctx.fillText(label, x + 4, padding + 14);
+        });
+      }
+
+      function renderEventsList(events) {
+        const list = document.createElement("ul");
+        if (!events.length) {
+          const item = document.createElement("li");
+          item.textContent = "No events found.";
+          list.appendChild(item);
+          return list;
+        }
+        events.forEach((event) => {
+          const item = document.createElement("li");
+          const label = event.label || event.event_id || "event";
+          item.textContent = `${formatTimestampShort(event.start_time)} - ${label}`;
+          list.appendChild(item);
+        });
+        return list;
+      }
+
+      function formatMetricValue(metric) {
+        const rawValue = Number(metric.value);
+        const unit = metric.unit || "";
+        if (!Number.isFinite(rawValue)) {
+          return `n/a ${unit}`;
+        }
+        return `${rawValue.toFixed(2)} ${unit}`;
+      }
+
+      function formatMetricDetail(metric) {
+        const coverage = metric.coverage_ratio ?? metric.quality_summary?.coverage_percentage;
+        const coveragePercent = coverage === undefined
+          ? null
+          : Number(coverage) * (coverage <= 1 ? 100 : 1);
+        const returnPercent = metric.quality_summary?.return_toward_baseline_percentage;
+        const details = [];
+
+        if (coveragePercent !== null && Number.isFinite(coveragePercent)) {
+          details.push(`coverage ${coveragePercent.toFixed(0)}%`);
+        }
+        if (metric.metric_name === "recovery_slope" && returnPercent !== null && returnPercent !== undefined) {
+          const parsed = Number(returnPercent);
+          if (Number.isFinite(parsed)) {
+            details.push(`return ${parsed.toFixed(1)}%`);
+          }
+        }
+
+        return details.join(" · ");
+      }
+
+      function renderMetricsList(metrics, eventMap) {
+        const list = document.createElement("ul");
+        if (!metrics.length) {
+          const item = document.createElement("li");
+          item.textContent = "No metrics found.";
+          list.appendChild(item);
+          return list;
+        }
+
+        const grouped = new Map();
+        metrics.forEach((metric) => {
+          const eventId = metric.event_id || "unknown";
+          if (!grouped.has(eventId)) grouped.set(eventId, []);
+          grouped.get(eventId).push(metric);
+        });
+
+        Array.from(grouped.entries()).forEach(([eventId, group]) => {
+          const card = document.createElement("li");
+          card.className = "metric-card";
+
+          const event = eventMap.get(eventId);
+          const title = document.createElement("div");
+          title.className = "metric-title";
+          const label = event ? (event.label || event.event_id) : eventId;
+          const time = event ? formatTimestampShort(event.start_time) : "unknown time";
+          title.textContent = `${time} · ${label}`;
+          card.appendChild(title);
+
+          group.forEach((metric) => {
+            const row = document.createElement("div");
+            row.className = "metric-row";
+
+            const name = document.createElement("span");
+            name.className = "metric-name";
+            name.textContent = metric.metric_name || "metric";
+
+            const value = document.createElement("span");
+            value.className = "metric-value";
+            value.textContent = formatMetricValue(metric);
+
+            const detail = document.createElement("span");
+            detail.className = "metric-detail";
+            detail.textContent = formatMetricDetail(metric);
+
+            row.appendChild(name);
+            row.appendChild(value);
+            row.appendChild(detail);
+            card.appendChild(row);
+          });
+
+          list.appendChild(card);
+        });
+
+        return list;
+      }
+
+      async function loadJson(url) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          return await response.json();
+        } catch (err) {
+          return null;
+        }
+      }
+
+      async function renderCase(caseConfig) {
+        const basePath = caseConfig.path || "../output";
+        const cgm = await loadJson(`${basePath}/cgm.json`);
+        if (!cgm) {
+          const error = document.createElement("section");
+          error.className = "panel";
+          error.textContent = `Missing cgm.json for ${caseConfig.title || basePath}`;
+          document.getElementById("cases").appendChild(error);
+          return;
+        }
+
+        const samples = cgm.samples || [];
+        const times = samples.map((s) => parseTimestamp(s.timestamp));
+        const values = samples.map((s) => Number(s.glucose_value));
+        const [minValue, maxValue] = safeMinMax(values);
+
+        const minTime = new Date(Math.min(...times.map((t) => t.getTime())));
+        const maxTime = new Date(Math.max(...times.map((t) => t.getTime())));
+
+        const eventsData = await loadJson(`${basePath}/events.json`);
+        const events = eventsData ? eventsData.events || [] : [];
+        const eventMap = new Map();
+        events.forEach((event) => {
+          if (event.event_id) eventMap.set(event.event_id, event);
+        });
+
+        const metricsData = await loadJson(`${basePath}/metrics.json`);
+        const metrics = metricsData ? metricsData.metrics || [] : [];
+
+        const section = document.createElement("section");
+        section.className = "panel case";
+
+        const head = document.createElement("div");
+        head.className = "case-head";
+        const title = document.createElement("h2");
+        title.className = "case-title";
+        title.textContent = caseConfig.title || "Case";
+        const meta = document.createElement("div");
+        meta.className = "case-meta";
+        meta.textContent = `${formatTimestampShort(minTime.toISOString())} → ${formatTimestampShort(maxTime.toISOString())}`;
+        head.appendChild(title);
+        head.appendChild(meta);
+        section.appendChild(head);
+
+        const summary = document.createElement("div");
+        summary.className = "summary";
+        [
+          `Series ID: ${cgm.series_id || "unknown"}`,
+          `Samples: ${samples.length}`,
+          `Unit: ${cgm.unit || "unknown"}`,
+          `Events: ${events.length}`,
+          `Metrics: ${metrics.length}`,
+        ].forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "stat";
+          div.textContent = item;
+          summary.appendChild(div);
+        });
+        section.appendChild(summary);
+
+        const chartPanel = document.createElement("div");
+        chartPanel.className = "chart-panel";
+        const chartHeader = document.createElement("div");
+        chartHeader.className = "chart-header";
+        chartHeader.innerHTML = `
+          <h2>CGM Timeline</h2>
+          <div class="legend">
+            <span><i></i> glucose response</span>
+            <span>│ event markers</span>
+          </div>
+        `;
+        chartPanel.appendChild(chartHeader);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 180;
+        chartPanel.appendChild(canvas);
+        section.appendChild(chartPanel);
+
+        const ctx = canvas.getContext("2d");
+        const padding = 50;
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+        drawGrid(ctx, width, height, padding, minValue, maxValue);
+
+        const timeSpan = maxTime - minTime || 1;
+        const xScale = (time) =>
+          padding + ((time - minTime) / timeSpan) * (width - padding * 2);
+        const yScale = (value) =>
+          height -
+          padding -
+          ((value - minValue) / (maxValue - minValue || 1)) * (height - padding * 2);
+
+        const points = samples.map((sample) => [
+          xScale(parseTimestamp(sample.timestamp)),
+          yScale(sample.glucose_value),
+        ]);
+        drawLine(ctx, points);
+
+        if (events.length) {
+          drawEvents(ctx, events, xScale, padding, height);
+        }
+
+        const details = document.createElement("div");
+        details.className = "case-details two-up";
+
+        const eventsPanel = document.createElement("section");
+        eventsPanel.className = "panel subpanel events";
+        const eventsTitle = document.createElement("h3");
+        eventsTitle.textContent = "Events";
+        eventsPanel.appendChild(eventsTitle);
+        eventsPanel.appendChild(renderEventsList(events));
+        const eventsNote = document.createElement("p");
+        eventsNote.className = "note";
+        eventsNote.textContent = "Event labels come from the parsed text file.";
+        eventsPanel.appendChild(eventsNote);
+
+        const metricsPanel = document.createElement("section");
+        metricsPanel.className = "panel subpanel metrics";
+        const metricsTitle = document.createElement("h3");
+        metricsTitle.textContent = "Metrics";
+        metricsPanel.appendChild(metricsTitle);
+        metricsPanel.appendChild(renderMetricsList(metrics, eventMap));
+        const metricsNote = document.createElement("p");
+        metricsNote.className = "note";
+        metricsNote.textContent = "Derived per event if metrics are available.";
+        metricsPanel.appendChild(metricsNote);
+
+        details.appendChild(eventsPanel);
+        details.appendChild(metricsPanel);
+        section.appendChild(details);
+
+        document.getElementById("cases").appendChild(section);
+      }
+
+      function renderGlossary() {
+        const panel = document.createElement("section");
+        panel.className = "panel";
+        const title = document.createElement("h2");
+        title.className = "case-title";
+        title.textContent = "Metrics Glossary";
+        panel.appendChild(title);
+
+        const list = document.createElement("ul");
+        list.className = "metrics-glossary";
+        list.innerHTML = `
+          <li><strong>baseline_glucose</strong> — mean glucose in the 30 minutes before the event.</li>
+          <li><strong>iAUC</strong> — incremental area under the curve above baseline in the event window.</li>
+          <li><strong>delta_peak</strong> — peak glucose minus baseline (not used for questions).</li>
+          <li><strong>time_to_peak</strong> — minutes from event start to max glucose.</li>
+          <li><strong>recovery_slope</strong> — linear slope during the recovery window; negative means falling (recovery), positive means rising. “return %” compares recovery end to baseline.</li>
+        `;
+        panel.appendChild(list);
+        return panel;
+      }
+
+      async function render() {
+        const casesIndex = await loadJson(CASE_INDEX_URL);
+        const cases = casesIndex?.cases?.length
+          ? casesIndex.cases
+          : [{ title: "Latest run", path: "../output" }];
+
+        const root = document.getElementById("cases");
+        root.innerHTML = "";
+        for (const caseConfig of cases) {
+          await renderCase(caseConfig);
+        }
+        root.appendChild(renderGlossary());
+      }
+
+      render();
+    </script>
+  </body>
+</html>

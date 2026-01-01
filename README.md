@@ -85,6 +85,24 @@ Event fields:
 - **source**: How the annotation was created (manual/app/import/api)
 - **annotation_quality**: Subjective quality score 0-1
 
+### Parsing Events from Text
+
+Parse a simple text file where each line is:
+
+```
+YYYY-MM-DD HH:MM <label>
+```
+
+Example:
+
+```bash
+python -m cgm_events.text_cli data/events.txt data/events.json \
+  --subject-id subject_001 \
+  --timezone Asia/Shanghai \
+  --event-type meal \
+  --pretty
+```
+
 ### Generating Signal Sanity Report
 
 After importing CGM data, generate a signal sanity report:
@@ -138,6 +156,55 @@ Each metric includes:
 - 70-90%: Good, acceptable for most analyses
 - 50-70%: Marginal, use with caution
 - < 50%: Poor, exclude from analysis
+
+### Pipeline CLI
+
+Run a full pipeline from XLSX to answerability report:
+
+```bash
+python -m cgm_pipeline.cli data.xlsx output/ \
+  --subject-id subject_001 \
+  --device-id dexcom_g7_sn12345 \
+  --timezone Asia/Shanghai \
+  --unit mg/dL \
+  --markdown \
+  --pretty \
+  --verbose
+```
+
+Optional inputs:
+
+```bash
+python -m cgm_pipeline.cli data.xlsx output/ \
+  --events-file data/events.json \
+  --question-file data/question.json \
+  --subject-id subject_001 \
+  --device-id dexcom_g7_sn12345 \
+  --timezone Asia/Shanghai
+```
+
+Parse event text inline:
+
+```bash
+python -m cgm_pipeline.cli data.xlsx output/ \
+  --events-text data/events.txt \
+  --events-text-type meal \
+  --subject-id subject_001 \
+  --device-id dexcom_g7_sn12345 \
+  --timezone Asia/Shanghai
+```
+
+Outputs (in `output/`):
+- `cgm.json`: CGM time series schema
+- `sanity.json`: Signal sanity report
+- `metrics.json`: Derived metrics per event
+- `answerability.json`: Structured answerability evaluation
+- `report.json`: Summary report
+- `report.md`: Markdown summary (when `--markdown` is used)
+
+The GitHub Actions workflow in `.github/workflows/pipeline.yml` runs this pipeline.
+Events/questions are optional; when provided, it can publish `report.json`/`report.md`
+to a separate GitHub Pages repo.
 
 ### Parameters
 

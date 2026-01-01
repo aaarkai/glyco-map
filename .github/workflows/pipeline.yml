@@ -1,0 +1,129 @@
+name: CGM Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      xlsx_path:
+        description: "Path to CGM XLSX file"
+        default: "data/cgm.xlsx"
+        required: true
+      events_path:
+        description: "Path to events JSON file"
+        default: "data/events.json"
+        required: false
+      events_text_path:
+        description: "Path to events text file"
+        default: "data/events.txt"
+        required: false
+      question_path:
+        description: "Path to question JSON file"
+        default: "data/question.json"
+        required: false
+      output_dir:
+        description: "Output directory"
+        default: "output"
+        required: true
+      subject_id:
+        description: "Subject identifier"
+        required: true
+      device_id:
+        description: "Device identifier"
+        required: true
+      timezone:
+        description: "IANA timezone"
+        default: "Asia/Shanghai"
+        required: true
+      unit:
+        description: "Glucose unit"
+        default: "mg/dL"
+        required: true
+      publish_repo:
+        description: "Owner/repo for GitHub Pages content (optional)"
+        default: ""
+        required: false
+      publish_path:
+        description: "Path in publish repo to write report files"
+        default: "reports"
+        required: false
+      publish_branch:
+        description: "Branch to push in publish repo"
+        default: "main"
+        required: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run pipeline
+        run: |
+          EVENTS_ARG=""
+          EVENTS_TEXT_ARG=""
+          QUESTION_ARG=""
+          if [ -n "${{ inputs.events_path }}" ]; then
+            EVENTS_ARG="--events-file ${{ inputs.events_path }}"
+          fi
+          if [ -n "${{ inputs.events_text_path }}" ]; then
+            EVENTS_TEXT_ARG="--events-text ${{ inputs.events_text_path }}"
+          fi
+          if [ -n "${{ inputs.question_path }}" ]; then
+            QUESTION_ARG="--question-file ${{ inputs.question_path }}"
+          fi
+
+          python -m cgm_pipeline.cli \
+            "${{ inputs.xlsx_path }}" \
+            "${{ inputs.output_dir }}" \
+            $EVENTS_ARG \
+            $EVENTS_TEXT_ARG \
+            $QUESTION_ARG \
+            --subject-id "${{ inputs.subject_id }}" \
+            --device-id "${{ inputs.device_id }}" \
+            --timezone "${{ inputs.timezone }}" \
+            --unit "${{ inputs.unit }}" \
+            --pretty \
+            --markdown \
+            --verbose
+
+      - name: Upload pipeline outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: cgm-pipeline-output
+          path: ${{ inputs.output_dir }}
+
+      - name: Publish report to GitHub Pages repo
+        if: ${{ inputs.publish_repo != '' }}
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          if [ -z "$PUBLISH_TOKEN" ]; then
+            echo "PUBLISH_TOKEN secret is required to push to publish_repo."
+            exit 1
+          fi
+          git config --global user.name "cgm-pipeline-bot"
+          git config --global user.email "cgm-pipeline-bot@users.noreply.github.com"
+          git clone "https://x-access-token:${PUBLISH_TOKEN}@github.com/${{ inputs.publish_repo }}.git" publish_repo
+          cd publish_repo
+          git checkout "${{ inputs.publish_branch }}"
+          mkdir -p "${{ inputs.publish_path }}"
+          cp "../${{ inputs.output_dir }}/report.json" "${{ inputs.publish_path }}/report.json"
+          cp "../${{ inputs.output_dir }}/report.md" "${{ inputs.publish_path }}/report.md"
+          git add "${{ inputs.publish_path }}/report.json" "${{ inputs.publish_path }}/report.md"
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+            exit 0
+          fi
+          git commit -m "Update CGM report from pipeline run"
+          git push origin "${{ inputs.publish_branch }}"

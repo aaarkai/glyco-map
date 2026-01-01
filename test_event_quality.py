@@ -75,6 +75,22 @@ class TestEventQuality(unittest.TestCase):
         self.assertAlmostEqual(overlap['coverage_fraction'], 1.0, places=1)
         self.assertEqual(overlap['issues'], [])
 
+    def test_parse_z_timestamps(self):
+        """Test that Z timestamps are parsed correctly."""
+        cgm_data = self.create_test_cgm_data(self.base_time, 5)
+        cgm_data["samples"][0]["timestamp"] = "2024-01-01T08:00:00Z"
+
+        timestamps = self.evaluator.parse_cgm_timestamps(cgm_data)
+        self.assertEqual(len(timestamps), 5)
+        self.assertEqual(timestamps[0].isoformat(), "2024-01-01T08:00:00+00:00")
+
+        event = self.create_test_event(0, duration_minutes=30)
+        event["start_time"] = "2024-01-01T08:00:00Z"
+        event["end_time"] = "2024-01-01T08:30:00Z"
+        start, end = self.evaluator.parse_event_times(event)
+        self.assertEqual(start.isoformat(), "2024-01-01T08:00:00+00:00")
+        self.assertEqual(end.isoformat(), "2024-01-01T08:30:00+00:00")
+
     def test_cgm_overlap_partial(self):
         """Test CGM overlap with partial coverage."""
         cgm_data = self.create_test_cgm_data(self.base_time, 100)

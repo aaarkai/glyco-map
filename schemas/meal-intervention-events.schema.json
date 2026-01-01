@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/glyco-map/schemas/1.0.0/meal-intervention-events.schema.json",
+  "title": "Meal or Intervention Events",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "events_id",
+    "subject_id",
+    "time_zone",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "events_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "time_zone": {
+      "$ref": "#/$defs/time_zone"
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "time_zone": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+.-]+/[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)?$",
+      "description": "IANA time zone name such as America/Los_Angeles."
+    },
+    "date_time_tz": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+      "description": "RFC 3339 timestamp with explicit timezone (Z or offset)."
+    },
+    "event_type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Examples: meal, snack, exercise, medication, fasting."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["manual", "app", "import", "api", "other"]
+    },
+    "exposure_component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "unit"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_type", "start_time", "source"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "$ref": "#/$defs/event_type"
+        },
+        "start_time": {
+          "$ref": "#/$defs/date_time_tz"
+        },
+        "end_time": {
+          "$ref": "#/$defs/date_time_tz"
+        },
+        "duration_minutes": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "exposure_components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/exposure_component"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "annotation_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

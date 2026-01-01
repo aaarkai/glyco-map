@@ -197,8 +197,8 @@ Outputs (in `output/`):
 - `report.md`: Markdown summary (when `--markdown` is used)
 
 The GitHub Actions workflow in `.github/workflows/pipeline.yml` runs this pipeline.
-Events/questions are optional; when provided, it can publish `report.json`/`report.md`
-to a separate GitHub Pages repo.
+Events/questions are optional; when provided, the workflow publishes `index.html`
+plus JSON outputs to this repo's GitHub Pages.
 
 ### Automated GitHub Actions Pipeline
 
@@ -214,10 +214,9 @@ Set these repository variables in GitHub Actions (optional):
 - `SUBJECT_ID`
 - `DEVICE_ID`
 - `TIMEZONE` (optional, defaults to Asia/Shanghai)
-- `PUBLISH_REPO` (e.g., `aaarkai/aaarkai.github.io`)
-- `PUBLISH_PATH` (e.g., `ecg_map`)
 
-Also add a `PUBLISH_TOKEN` secret with write access to the pages repo.
+Enable GitHub Pages for this repository (Settings -> Pages -> Source: GitHub Actions).
+The page will be available at `https://<user>.github.io/<repo>/`.
 
 ### Parameters
 

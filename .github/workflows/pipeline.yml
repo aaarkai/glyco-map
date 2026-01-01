@@ -37,25 +37,25 @@ on:
         description: "Glucose unit"
         default: "mg/dL"
         required: true
-      publish_repo:
-        description: "Owner/repo for GitHub Pages content (optional)"
-        default: ""
-        required: false
-      publish_path:
-        description: "Path in publish repo to write report files"
-        default: "ecg_map"
-        required: false
-      publish_branch:
-        description: "Branch to push in publish repo"
-        default: "main"
-        required: false
   push:
     paths:
       - "data/**"
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
   pipeline:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
@@ -123,42 +123,31 @@ jobs:
           name: cgm-pipeline-output
           path: ${{ inputs.output_dir }}
 
-      - name: Publish report to GitHub Pages repo
-        if: ${{ (inputs.publish_repo || vars.PUBLISH_REPO) != '' }}
-        env:
-          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+      - name: Prepare Pages artifact
         run: |
-          if [ -z "$PUBLISH_TOKEN" ]; then
-            echo "PUBLISH_TOKEN secret is required to push to publish_repo."
-            exit 1
+          OUTPUT_DIR="${{ inputs.output_dir || 'output' }}"
+          PAGES_DIR="pages"
+          mkdir -p "$PAGES_DIR"
+          cp "web/index.html" "$PAGES_DIR/index.html"
+          cp "$OUTPUT_DIR/cgm.json" "$PAGES_DIR/cgm.json"
+          if [ -f "$OUTPUT_DIR/events.json" ]; then
+            cp "$OUTPUT_DIR/events.json" "$PAGES_DIR/events.json"
           fi
-          PUBLISH_REPO="${{ inputs.publish_repo || vars.PUBLISH_REPO }}"
-          PUBLISH_PATH="${{ inputs.publish_path || vars.PUBLISH_PATH || 'ecg_map' }}"
-          PUBLISH_BRANCH="${{ inputs.publish_branch || vars.PUBLISH_BRANCH || 'main' }}"
-          git config --global user.name "cgm-pipeline-bot"
-          git config --global user.email "cgm-pipeline-bot@users.noreply.github.com"
-          git clone "https://x-access-token:${PUBLISH_TOKEN}@github.com/${PUBLISH_REPO}.git" publish_repo
-          cd publish_repo
-          git checkout "$PUBLISH_BRANCH"
-          mkdir -p "$PUBLISH_PATH"
-          cp "../web/index.html" "$PUBLISH_PATH/index.html"
-          cp "../$OUTPUT_DIR/cgm.json" "$PUBLISH_PATH/cgm.json"
-          if [ -f "../$OUTPUT_DIR/events.json" ]; then
-            cp "../$OUTPUT_DIR/events.json" "$PUBLISH_PATH/events.json"
+          if [ -f "$OUTPUT_DIR/metrics.json" ]; then
+            cp "$OUTPUT_DIR/metrics.json" "$PAGES_DIR/metrics.json"
           fi
-          if [ -f "../$OUTPUT_DIR/metrics.json" ]; then
-            cp "../$OUTPUT_DIR/metrics.json" "$PUBLISH_PATH/metrics.json"
+          if [ -f "$OUTPUT_DIR/report.json" ]; then
+            cp "$OUTPUT_DIR/report.json" "$PAGES_DIR/report.json"
           fi
-          if [ -f "../$OUTPUT_DIR/report.json" ]; then
-            cp "../$OUTPUT_DIR/report.json" "$PUBLISH_PATH/report.json"
+          if [ -f "$OUTPUT_DIR/report.md" ]; then
+            cp "$OUTPUT_DIR/report.md" "$PAGES_DIR/report.md"
           fi
-          if [ -f "../$OUTPUT_DIR/report.md" ]; then
-            cp "../$OUTPUT_DIR/report.md" "$PUBLISH_PATH/report.md"
-          fi
-          git add "$PUBLISH_PATH"
-          if git diff --cached --quiet; then
-            echo "No changes to publish."
-            exit 0
-          fi
-          git commit -m "Update CGM report from pipeline run"
-          git push origin "$PUBLISH_BRANCH"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

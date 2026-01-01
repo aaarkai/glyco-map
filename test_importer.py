@@ -89,24 +89,17 @@ class TestCGMImporter(unittest.TestCase):
 
     def test_detect_artifacts_rapid_changes(self):
         """Test artifact detection for rapid glucose jumps."""
-        values = pd.Series([95, 98, 102, 98, 150, 100, 105, 108, 40, 98])
-        flags = self.importer.detect_artifacts(values)
+        # Create a jump >54 mg/dL (200 - 98 = 102 mg/dL) followed by reversal
+        values = pd.Series([95, 98, 102, 98, 200, 100, 105, 108, 40, 98])
+        flags = self.importer.detect_artifacts(values, unit="mg/dL")
 
-        # Sample 4 with rapid jump to 150 then back to 100 should be flagged
+        # Sample 4 with rapid jump to 200 then back to 100 should be flagged
         self.assertIn("artifact", flags[4])
 
     def test_detect_artifacts_flat_readings(self):
         """Test artifact detection for flat readings."""
         values = pd.Series([98, 98, 98, 98, 99, 100, 101])
-        flags = self.importer.detect_artifacts(values)
-
-        # Samples 2 through 4 should be flagged as flat
-        self.assertIn("artifact", flags[2])
-
-    def test_detect_artifacts_flat_readings(self):
-        """Test artifact detection for flat readings."""
-        values = pd.Series([98, 98, 98, 98, 99, 100, 101])
-        flags = self.importer.detect_artifacts(values)
+        flags = self.importer.detect_artifacts(values, unit="mg/dL")
 
         # Samples 2 through 4 should be flagged as flat
         self.assertIn("artifact", flags[2])
@@ -188,7 +181,7 @@ class TestCGMImporter(unittest.TestCase):
         # Process the file
         df = self.importer.read_xlsx(str(filepath))
         interval = self.importer.detect_sampling_interval(df["timestamp"])
-        flags = self.importer.detect_artifacts(df["glucose_value"])
+        flags = self.importer.detect_artifacts(df["glucose_value"], unit="mg/dL")
 
         # Verify results
         self.assertEqual(len(df), 24)
@@ -196,6 +189,41 @@ class TestCGMImporter(unittest.TestCase):
         # Realistic data shouldn't have many artifacts
         artifact_count = sum(1 for f in flags if "artifact" in f or "sensor_error" in f)
         self.assertLess(artifact_count, 3)
+
+    def test_artifact_detection_different_units(self):
+        """Test that artifact detection uses correct thresholds for different units."""
+        # In mg/dL, jump of 40 mg/dL is normal (below 54 threshold)
+        values_mgdl = pd.Series([95, 98, 102, 98, 130, 100, 105])
+        flags_mgdl = self.importer.detect_artifacts(values_mgdl, unit="mg/dL")
+        # Should NOT flag as artifact
+        self.assertEqual(len([f for f in flags_mgdl if "artifact" in f]), 0)
+
+        # In mmol/L, jump of 2 mmol/L is below threshold (3 mmol/L)
+        values_mmoll = pd.Series([5.3, 5.5, 5.8, 7.8, 5.6])  # 2.0 mmol/L jump at index 3
+        flags_mmoll = self.importer.detect_artifacts(values_mmoll, unit="mmol/L")
+        # Should NOT flag as artifact
+        self.assertEqual(len([f for f in flags_mmoll if "artifact" in f]), 0)
+
+        # In mmol/L, jump of 4 mmol/L is above threshold (3 mmol/L)
+        values_large = pd.Series([5.3, 5.5, 5.8, 9.8, 5.6])  # 4.0 mmol/L jump at index 3
+        flags_large = self.importer.detect_artifacts(values_large, unit="mmol/L")
+        # Should flag as artifact
+        self.assertIn("artifact", flags_large[3])
+
+    def test_detect_sampling_interval_duplicate_timestamps(self):
+        """Test that duplicate timestamps are caught."""
+        # Create timestamps with a duplicate
+        timestamps = pd.to_datetime([
+            "2024-01-01 08:00",
+            "2024-01-01 08:05",
+            "2024-01-01 08:05",  # Duplicate!
+            "2024-01-01 08:10",
+        ])
+
+        with self.assertRaises(ValueError) as ctx:
+            self.importer.detect_sampling_interval(timestamps)
+
+        self.assertIn("duplicate", str(ctx.exception))
 
 def run_tests():
     """Run the test suite."""

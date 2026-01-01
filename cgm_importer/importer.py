@@ -73,6 +73,17 @@ class CGM_XLSX_Importer:
         # This removes rows that couldn't be parsed as timestamps or numeric glucose values
         df = df.dropna().reset_index(drop=True)
 
+        # Check for duplicate timestamps before sorting
+        if df["timestamp"].duplicated().any():
+            duplicate_count = df["timestamp"].duplicated().sum()
+            raise ValueError(
+                f"Detected {duplicate_count} duplicate timestamps. "
+                f"Each timestamp must be unique for proper interval calculation."
+            )
+
+        # Sort by timestamp
+        df = df.sort_values("timestamp").reset_index(drop=True)
+
         return df
 
     def detect_sampling_interval(self, timestamps: pd.Series) -> float:
@@ -91,12 +102,28 @@ class CGM_XLSX_Importer:
         if len(timestamps) < 2:
             raise ValueError("At least 2 samples required to infer sampling interval")
 
+        # Check for duplicates first
+        if timestamps.duplicated().any():
+            duplicate_count = timestamps.duplicated().sum()
+            raise ValueError(
+                f"Detected {duplicate_count} duplicate timestamps. "
+                f"Each timestamp must be unique for proper interval calculation."
+            )
+
         # Calculate differences in minutes
         timedeltas = timestamps.diff().dropna()
         intervals = timedeltas.dt.total_seconds() / 60.0 if hasattr(timedeltas, 'dt') else timedeltas.total_seconds() / 60.0
 
         if len(intervals) == 0:
             raise ValueError("No valid intervals found")
+
+        # Guard against zero intervals (shouldn't happen after duplicate check, but be safe)
+        zero_intervals = sum(1 for x in intervals if x < 0.001)
+        if zero_intervals > 0:
+            raise ValueError(
+                f"Detected {zero_intervals} zero-length intervals. "
+                f"Timestamps may be unsorted."
+            )
 
         # Use median for robustness against outliers
         median_interval = float(np.median(intervals))
@@ -124,32 +151,36 @@ class CGM_XLSX_Importer:
 
         return float(median_interval)
 
-    def detect_artifacts(self, glucose_values: pd.Series) -> List[List[str]]:
+    def detect_artifacts(self, glucose_values: pd.Series, unit: str = "mg/dL") -> List[List[str]]:
         """
         Detect common CGM sensor artifacts and quality issues.
 
         Args:
             glucose_values: Series of glucose values
+            unit: Glucose unit ('mg/dL' or 'mmol/L')
 
         Returns:
             List of quality flag lists for each sample
         """
         quality_flags = [[] for _ in range(len(glucose_values))]
 
-        # Define artifact detection criteria
-        # These thresholds are based on common CGM sensor characteristics
+        # Define artifact detection thresholds based on unit
+        # 3 mmol/L ≈ 54 mg/dL - this is a very large physiologic jump
+        if unit == "mmol/L":
+            jump_threshold = 3.0  # mmol/L
+        else:  # mg/dL
+            jump_threshold = 54.0  # mg/dL
 
         for i, value in enumerate(glucose_values):
             flags = []
 
-            # Check for large single-sample jumps (>3 mmol/L or >50 mg/dL change)
+            # Check for large single-sample jumps
             # Only flag if value change is physically impossible
             if i > 0 and i < len(glucose_values) - 1:
                 prev_value = glucose_values.iloc[i-1]
                 change_current = abs(value - prev_value)
 
-                # Threshold: 3 mmol/L (approx 54 mg/dL) is a very large jump
-                if change_current > 3:
+                if change_current > jump_threshold:
                     # Check if it's followed by reversal (ie, correction back toward previous)
                     next_value = glucose_values.iloc[i+1]
                     # If next_value moves at least 70% of the way back to previous value
@@ -191,14 +222,19 @@ class CGM_XLSX_Importer:
         sampling_interval = self.detect_sampling_interval(df["timestamp"])
 
         # Detect artifacts
-        detected_flags = self.detect_artifacts(df["glucose_value"])
+        detected_flags = self.detect_artifacts(df["glucose_value"], unit)
 
         # Get pre-existing quality flags from read_xlsx
         pre_flags = df.get("quality_flags", [[] for _ in range(len(df))])
 
-        # Generate series ID based on content
+        # Generate series ID based on actual content for provenance
+        # Hash includes timestamps and values to ensure uniqueness per dataset
+        content_for_hash = []
+        for _, row in df.iterrows():
+            content_for_hash.append(f"{row['timestamp'].isoformat()}:{row['glucose_value']:.6f}")
+
         series_hash = hashlib.sha256(
-            f"{subject_id}_{device_id}_{len(df)}".encode()
+            f"{subject_id}_{device_id}_{';'.join(content_for_hash)}".encode()
         ).hexdigest()[:16]
         series_id = f"cgm_{series_hash}"
 

@@ -180,7 +180,7 @@ def main() -> None:
         parser_engine = CGMEventTextParser()
         events = parser_engine.parse_file(
             str(events_text_path),
-            subject_id=args.subject_id,
+            subject_id=subject_id,
             timezone=args.timezone,
             event_type=args.events_text_type,
         )
@@ -188,7 +188,7 @@ def main() -> None:
 
         creator = CGMEventCreator()
         events_data = creator.create_events_collection(
-            subject_id=args.subject_id,
+            subject_id=subject_id,
             timezone=args.timezone,
             events=events,
             collection_notes=f"Parsed from {events_text_path.name}",

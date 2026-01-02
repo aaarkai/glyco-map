@@ -506,20 +506,7 @@
       }
 
       function drawAxisLabels(ctx, width, height, padding, plotBottom, unit) {
-        ctx.fillStyle = "#6f6255";
-        ctx.font = "12px Literata, serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        ctx.fillText("time", width / 2, height - 6);
-
-        ctx.save();
-        ctx.translate(16, padding + (plotBottom - padding) / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        const label = unit ? `glucose value (${unit})` : "glucose value";
-        ctx.fillText(label, 0, 0);
-        ctx.restore();
+        return;
       }
 
       function drawLine(ctx, points) {

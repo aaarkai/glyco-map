@@ -237,6 +237,21 @@
         font-size: 13px;
       }
 
+      .event-item {
+        cursor: pointer;
+        transition: border 0.2s ease, background 0.2s ease;
+      }
+
+      .event-item.is-active {
+        border-color: rgba(192, 74, 43, 0.45);
+        background: rgba(255, 244, 238, 0.9);
+      }
+
+      .metric-card.is-active {
+        border-color: rgba(192, 74, 43, 0.45);
+        box-shadow: 0 12px 28px rgba(31, 26, 20, 0.12);
+      }
+
       .metrics ul {
         gap: 10px;
       }
@@ -246,6 +261,7 @@
         border-radius: 16px;
         border: 1px solid rgba(31, 26, 20, 0.12);
         background: rgba(255, 255, 255, 0.85);
+        cursor: pointer;
       }
 
       .metric-header {
@@ -520,18 +536,117 @@
         ctx.stroke();
       }
 
-      function drawEvents(ctx, events, xScale, padding, plotBottom) {
-        ctx.strokeStyle = "rgba(31, 26, 20, 0.32)";
-        events.forEach((event, idx) => {
+      function drawWindowHighlight(ctx, startMs, endMs, xScale, padding, plotBottom, color) {
+        if (startMs >= endMs) return;
+        const xStart = xScale(new Date(startMs));
+        const xEnd = xScale(new Date(endMs));
+        const width = Math.max(1, xEnd - xStart);
+        ctx.fillStyle = color;
+        ctx.fillRect(xStart, padding, width, plotBottom - padding);
+      }
+
+      function drawThresholdFill(
+        ctx,
+        sampleTimes,
+        sampleValues,
+        windowStart,
+        windowEnd,
+        threshold,
+        xScale,
+        yScale,
+        plotBottom,
+        color
+      ) {
+        const segments = [];
+        let current = [];
+
+        for (let i = 0; i < sampleTimes.length - 1; i++) {
+          const t1 = sampleTimes[i];
+          const t2 = sampleTimes[i + 1];
+          if (t2 < windowStart || t1 > windowEnd) continue;
+
+          const segStart = Math.max(t1, windowStart);
+          const segEnd = Math.min(t2, windowEnd);
+          if (segStart > segEnd) continue;
+
+          const v1 = sampleValues[i];
+          const v2 = sampleValues[i + 1];
+          const interp = (t) => v1 + ((v2 - v1) * (t - t1)) / (t2 - t1);
+          const vStart = segStart === t1 ? v1 : interp(segStart);
+          const vEnd = segEnd === t2 ? v2 : interp(segEnd);
+
+          const startAbove = vStart >= threshold;
+          const endAbove = vEnd >= threshold;
+
+          if (startAbove && endAbove) {
+            if (!current.length) current.push({ t: segStart, v: vStart });
+            current.push({ t: segEnd, v: vEnd });
+            continue;
+          }
+
+          if (!startAbove && !endAbove) {
+            if (current.length >= 2) {
+              segments.push(current);
+            }
+            current = [];
+            continue;
+          }
+
+          const tCross = segStart + ((threshold - vStart) * (segEnd - segStart)) / (vEnd - vStart);
+          const vCross = threshold;
+
+          if (startAbove && !endAbove) {
+            if (!current.length) current.push({ t: segStart, v: vStart });
+            current.push({ t: tCross, v: vCross });
+            if (current.length >= 2) {
+              segments.push(current);
+            }
+            current = [];
+          } else if (!startAbove && endAbove) {
+            current = [{ t: tCross, v: vCross }, { t: segEnd, v: vEnd }];
+          }
+        }
+
+        if (current.length >= 2) {
+          segments.push(current);
+        }
+
+        if (!segments.length) return;
+
+        const yThreshold = yScale(threshold);
+        ctx.fillStyle = color;
+
+        segments.forEach((segment) => {
+          ctx.beginPath();
+          ctx.moveTo(xScale(new Date(segment[0].t)), yScale(segment[0].v));
+          for (let i = 1; i < segment.length; i++) {
+            ctx.lineTo(xScale(new Date(segment[i].t)), yScale(segment[i].v));
+          }
+          const last = segment[segment.length - 1];
+          const first = segment[0];
+          ctx.lineTo(xScale(new Date(last.t)), yThreshold);
+          ctx.lineTo(xScale(new Date(first.t)), yThreshold);
+          ctx.closePath();
+          ctx.fill();
+        });
+      }
+
+      function drawEvents(ctx, events, xScale, padding, plotBottom, selectedEventId) {
+        events.forEach((event) => {
           const x = xScale(parseTimestamp(event.start_time));
+          ctx.strokeStyle = event.event_id === selectedEventId
+            ? "rgba(192, 74, 43, 0.7)"
+            : "rgba(31, 26, 20, 0.32)";
+          ctx.lineWidth = event.event_id === selectedEventId ? 2 : 1;
           ctx.beginPath();
           ctx.moveTo(x, padding);
           ctx.lineTo(x, plotBottom);
           ctx.stroke();
         });
+        ctx.lineWidth = 1;
       }
 
-      function renderEventsList(events) {
+      function renderEventsList(events, selectedEventId, onSelect) {
         const list = document.createElement("ul");
         if (!events.length) {
           const item = document.createElement("li");
@@ -541,8 +656,15 @@
         }
         events.forEach((event) => {
           const item = document.createElement("li");
+          item.className = "event-item";
+          if (event.event_id === selectedEventId) {
+            item.classList.add("is-active");
+          }
           const label = event.label || event.event_id || "event";
           item.textContent = `${formatTimestampShort(event.start_time)} - ${label}`;
+          item.addEventListener("click", () => {
+            if (event.event_id) onSelect(event.event_id);
+          });
           list.appendChild(item);
         });
         return list;
@@ -583,7 +705,7 @@
         return details.join(" · ");
       }
 
-      function renderMetricsList(metrics, eventMap, signalsMap) {
+      function renderMetricsList(metrics, eventMap, signalsMap, selectedEventId, onSelect) {
         const list = document.createElement("ul");
         if (!metrics.length) {
           const item = document.createElement("li");
@@ -602,6 +724,10 @@
         Array.from(grouped.entries()).forEach(([eventId, group]) => {
           const card = document.createElement("li");
           card.className = "metric-card";
+          if (eventId === selectedEventId) {
+            card.classList.add("is-active");
+          }
+          card.addEventListener("click", () => onSelect(eventId));
 
           const event = eventMap.get(eventId);
           const titleRow = document.createElement("div");
@@ -738,6 +864,9 @@
           if (signal.event_id) signalsMap.set(signal.event_id, signal);
         });
 
+        const eventOrder = events.map((event) => event.event_id).filter(Boolean);
+        let selectedEventId = eventOrder[0] || null;
+
         const section = document.createElement("section");
         section.className = "panel case";
 
@@ -801,28 +930,77 @@
         const height = displayHeight;
         const plotBottom = height - padding - axisHeight;
         const plotHeight = plotBottom - padding;
-        ctx.clearRect(0, 0, width, height);
-        drawGrid(ctx, width, height, padding, minValue, maxValue, axisHeight);
+        const sampleTimes = samples.map((sample) => parseTimestamp(sample.timestamp).getTime());
+        const sampleValues = samples.map((sample) => Number(sample.glucose_value));
 
-        const timeSpan = maxTime - minTime || 1;
-        const xScale = (time) =>
-          padding + ((time - minTime) / timeSpan) * (width - padding * 2);
-        const yScale = (value) =>
-          plotBottom -
-          ((value - minValue) / (maxValue - minValue || 1)) * plotHeight;
+        const drawChart = (eventId) => {
+          ctx.clearRect(0, 0, width, height);
+          drawGrid(ctx, width, height, padding, minValue, maxValue, axisHeight);
 
-        const points = samples.map((sample) => [
-          xScale(parseTimestamp(sample.timestamp)),
-          yScale(sample.glucose_value),
-        ]);
-        drawLine(ctx, points);
+          const timeSpan = maxTime - minTime || 1;
+          const xScale = (time) =>
+            padding + ((time - minTime) / timeSpan) * (width - padding * 2);
+          const yScale = (value) =>
+            plotBottom -
+            ((value - minValue) / (maxValue - minValue || 1)) * plotHeight;
 
-        if (events.length) {
-          drawEvents(ctx, events, xScale, padding, plotBottom);
-        }
+          if (eventId) {
+            const event = eventMap.get(eventId);
+            if (event) {
+              const eventTime = parseTimestamp(event.start_time).getTime();
+              const baselineStart = eventTime - 15 * 60 * 1000;
+              const baselineEnd = eventTime;
+              const responseEnd = eventTime + 120 * 60 * 1000;
+              drawWindowHighlight(
+                ctx,
+                baselineStart,
+                baselineEnd,
+                xScale,
+                padding,
+                plotBottom,
+                "rgba(70, 140, 220, 0.12)"
+              );
+              drawWindowHighlight(
+                ctx,
+                eventTime,
+                responseEnd,
+                xScale,
+                padding,
+                plotBottom,
+                "rgba(248, 196, 120, 0.16)"
+              );
 
-        drawTimeAxis(ctx, minTime, maxTime, xScale, padding, width, plotBottom, axisHeight);
-        drawAxisLabels(ctx, width, height, padding, plotBottom, cgm.unit);
+              const threshold = cgm.unit === "mmol/L" ? 7.8 : 7.8 * 18.0;
+              drawThresholdFill(
+                ctx,
+                sampleTimes,
+                sampleValues,
+                eventTime,
+                responseEnd,
+                threshold,
+                xScale,
+                yScale,
+                plotBottom,
+                "rgba(192, 74, 43, 0.22)"
+              );
+            }
+          }
+
+          const points = samples.map((sample, idx) => [
+            xScale(parseTimestamp(sample.timestamp)),
+            yScale(sample.glucose_value),
+          ]);
+          drawLine(ctx, points);
+
+          if (events.length) {
+            drawEvents(ctx, events, xScale, padding, plotBottom, eventId);
+          }
+
+          drawTimeAxis(ctx, minTime, maxTime, xScale, padding, width, plotBottom, axisHeight);
+          drawAxisLabels(ctx, width, height, padding, plotBottom, cgm.unit);
+        };
+
+        drawChart(selectedEventId);
 
         const details = document.createElement("div");
         details.className = "case-details two-up";
@@ -831,22 +1009,39 @@
         eventsPanel.className = "panel subpanel events";
         const eventsTitle = document.createElement("h3");
         eventsTitle.textContent = "Events";
-        eventsPanel.appendChild(eventsTitle);
-        eventsPanel.appendChild(renderEventsList(events));
         const eventsNote = document.createElement("p");
         eventsNote.className = "note";
-        eventsNote.textContent = "Event labels come from the parsed text file.";
-        eventsPanel.appendChild(eventsNote);
+        eventsNote.textContent = "Click an event to highlight baseline/response windows on the timeline.";
 
         const metricsPanel = document.createElement("section");
         metricsPanel.className = "panel subpanel metrics";
         const metricsTitle = document.createElement("h3");
         metricsTitle.textContent = "Metrics";
-        metricsPanel.appendChild(metricsTitle);
-        metricsPanel.appendChild(renderMetricsList(metrics, eventMap, signalsMap));
         const metricsNote = document.createElement("p");
         metricsNote.className = "note";
         metricsNote.textContent = "Signals use coverage + core metrics; triggers list why a card is red/yellow/gray.";
+
+        const refreshSelections = () => {
+          eventsPanel.replaceChildren(eventsTitle, renderEventsList(events, selectedEventId, onSelectEvent), eventsNote);
+          metricsPanel.replaceChildren(
+            metricsTitle,
+            renderMetricsList(metrics, eventMap, signalsMap, selectedEventId, onSelectEvent),
+            metricsNote
+          );
+        };
+
+        const onSelectEvent = (eventId) => {
+          selectedEventId = eventId;
+          drawChart(selectedEventId);
+          refreshSelections();
+        };
+
+        eventsPanel.appendChild(eventsTitle);
+        eventsPanel.appendChild(renderEventsList(events, selectedEventId, onSelectEvent));
+        eventsPanel.appendChild(eventsNote);
+
+        metricsPanel.appendChild(metricsTitle);
+        metricsPanel.appendChild(renderMetricsList(metrics, eventMap, signalsMap, selectedEventId, onSelectEvent));
         metricsPanel.appendChild(metricsNote);
 
         details.appendChild(eventsPanel);

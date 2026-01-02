@@ -57,33 +57,6 @@ class QuestionAnswerabilityEvaluator:
             "min_isolation_minutes": self.min_isolation_minutes,
         }
 
-        if metric_name == "delta_peak":
-            reasons.append(self._reason(
-                "unsupported_metric",
-                "delta_peak uses composite windows and is not supported for question evaluation.",
-                blocking=True,
-            ))
-            data_requirements.append({
-                "type": "use_supported_metric",
-                "detail": "Use a metric with a single outcome window (e.g., iAUC, baseline_glucose).",
-                "metric_name": metric_name,
-            })
-            return {
-                "evaluation_version": "1.0.0",
-                "question_id": question_id,
-                "subject_id": subject_id,
-                "answerable": False,
-                "summary": summary,
-                "reasons": reasons,
-                "data_requirements": data_requirements,
-                "match_stats": {
-                    "exposure": None,
-                    "comparison": None,
-                    "confounded_event_ids": [],
-                    "overlap_event_ids": [],
-                },
-            }
-
         if events_data.get("subject_id") and subject_id and events_data.get("subject_id") != subject_id:
             reasons.append(self._reason(
                 "subject_id_mismatch",

@@ -36,6 +36,7 @@ class CGMEventMetrics:
         "delta_peak": "1.0.0",
         "auc": "1.0.0",
         "time_to_peak": "1.0.0",
+        "nadir_glucose": "1.0.0",
         "recovery_slope": "1.0.0",
     }
 
@@ -200,7 +201,7 @@ class CGMEventMetrics:
         auc_window: Dict[str, Any] = {
             "relative_to": "event_start",
             "start_offset_minutes": 0,
-            "end_offset_minutes": 180
+            "end_offset_minutes": 120
         }
     ) -> Dict[str, Any]:
         """
@@ -279,6 +280,68 @@ class CGMEventMetrics:
                 "window_samples": len(auc_samples),
                 "expected_samples": expected_samples,
                 "coverage_percentage": round(auc_coverage * 100, 1)
+            }
+        }
+
+    def calculate_nadir_glucose(
+        self,
+        cgm_data: Dict[str, Any],
+        event: Dict[str, Any],
+        window: Dict[str, Any] = {
+            "relative_to": "event_start",
+            "start_offset_minutes": 0,
+            "end_offset_minutes": 180
+        }
+    ) -> Dict[str, Any]:
+        """
+        Calculate nadir glucose (minimum value) after event start.
+
+        Args:
+            cgm_data: CGM time series with samples
+            event: Event annotation
+            window: Time window for nadir detection
+
+        Returns:
+            Metric result with nadir glucose value
+        """
+        window_samples, coverage_ratio, quality_flags = self._extract_window_samples(
+            cgm_data, event["start_time"], window
+        )
+
+        if len(window_samples) == 0:
+            raise CGMEventMetricsError(
+                f"No CGM data in nadir window for event {event['event_id']}"
+            )
+
+        values = [sample["glucose_value"] for sample in window_samples]
+        nadir_index = int(np.argmin(values))
+        nadir_value = float(values[nadir_index])
+        nadir_time = window_samples[nadir_index]["timestamp"]
+
+        expected_samples = self._calculate_expected_samples(window, cgm_data.get("sampling_interval_minutes", 5.0))
+
+        method_desc = (
+            f"Minimum glucose value in window "
+            f"[{window['start_offset_minutes']}, {window['end_offset_minutes']}] minutes."
+        )
+
+        return {
+            "event_id": event["event_id"],
+            "metric_name": "nadir_glucose",
+            "metric_version": self.VERSIONS["nadir_glucose"],
+            "window": window,
+            "value": nadir_value,
+            "unit": cgm_data["unit"],
+            "computed_at": datetime.now().isoformat(),
+            "method": method_desc,
+            "coverage_ratio": coverage_ratio,
+            "quality_flags": quality_flags,
+            "quality_summary": {
+                "nadir_glucose": nadir_value,
+                "nadir_time": nadir_time,
+                "window_samples": len(window_samples),
+                "expected_samples": expected_samples,
+                "coverage_percentage": round(coverage_ratio * 100, 1)
             }
         }
 
@@ -580,6 +643,12 @@ class CGMEventMetrics:
             metrics.append(ttp)
         except CGMEventMetricsError as e:
             self._logger.warning(f"Failed to calculate time_to_peak for event {event['event_id']}: {e}")
+
+        try:
+            nadir = self.calculate_nadir_glucose(cgm_data, event)
+            metrics.append(nadir)
+        except CGMEventMetricsError as e:
+            self._logger.warning(f"Failed to calculate nadir_glucose for event {event['event_id']}: {e}")
 
         try:
             recovery = self.calculate_recovery_slope(cgm_data, event)

@@ -74,6 +74,25 @@
         }
       }
     },
+    "window_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseline_window": {
+          "$ref": "#/$defs/window"
+        },
+        "peak_window": {
+          "$ref": "#/$defs/window"
+        },
+        "auc_window": {
+          "$ref": "#/$defs/window"
+        },
+        "recovery_window": {
+          "$ref": "#/$defs/window"
+        }
+      },
+      "minProperties": 1
+    },
     "quality_flag": {
       "type": "string",
       "enum": [
@@ -101,7 +120,10 @@
           "pattern": "^\\d+\\.\\d+\\.\\d+$"
         },
         "window": {
-          "$ref": "#/$defs/window"
+          "oneOf": [
+            { "$ref": "#/$defs/window" },
+            { "$ref": "#/$defs/window_bundle" }
+          ]
         },
         "value": {
           "type": "number"
@@ -122,6 +144,12 @@
             "$ref": "#/$defs/quality_flag"
           },
           "uniqueItems": true
+        },
+        "coverage_ratio": {
+          "type": "number"
+        },
+        "quality_summary": {
+          "type": "object"
         }
       }
     }

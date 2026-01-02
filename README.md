@@ -192,6 +192,7 @@ Outputs (in `output/`):
 - `cgm.json`: CGM time series schema
 - `sanity.json`: Signal sanity report
 - `metrics.json`: Derived metrics per event
+- `event_signals.json`: Red/yellow/green/gray event signals with triggers
 - `answerability.json`: Structured answerability evaluation
 - `report.json`: Summary report
 - `report.md`: Markdown summary (when `--markdown` is used)

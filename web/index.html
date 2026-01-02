@@ -248,6 +248,55 @@
         background: rgba(255, 255, 255, 0.85);
       }
 
+      .metric-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+
+      .status-chip {
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 600;
+        border: 1px solid transparent;
+      }
+
+      .status-green {
+        color: #134d2b;
+        background: rgba(121, 210, 150, 0.35);
+        border-color: rgba(19, 77, 43, 0.3);
+      }
+
+      .status-yellow {
+        color: #7a4a12;
+        background: rgba(255, 206, 120, 0.38);
+        border-color: rgba(122, 74, 18, 0.3);
+      }
+
+      .status-red {
+        color: #7a1f1f;
+        background: rgba(230, 120, 120, 0.3);
+        border-color: rgba(122, 31, 31, 0.32);
+      }
+
+      .status-gray {
+        color: #5a524a;
+        background: rgba(180, 174, 166, 0.35);
+        border-color: rgba(90, 82, 74, 0.3);
+      }
+
+      .trigger-list {
+        margin: 6px 0 8px;
+        padding-left: 16px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
       .metric-title {
         font-size: 12px;
         color: var(--muted);
@@ -490,6 +539,11 @@
         return `${rawValue.toFixed(2)} ${unit}`;
       }
 
+      function formatMetricName(name) {
+        if (name === "iAUC") return "iAUC_0-120";
+        return name || "metric";
+      }
+
       function formatMetricDetail(metric) {
         const coverage = metric.coverage_ratio ?? metric.quality_summary?.coverage_percentage;
         const coveragePercent = coverage === undefined
@@ -511,7 +565,7 @@
         return details.join(" · ");
       }
 
-      function renderMetricsList(metrics, eventMap) {
+      function renderMetricsList(metrics, eventMap, signalsMap) {
         const list = document.createElement("ul");
         if (!metrics.length) {
           const item = document.createElement("li");
@@ -532,12 +586,35 @@
           card.className = "metric-card";
 
           const event = eventMap.get(eventId);
+          const titleRow = document.createElement("div");
+          titleRow.className = "metric-header";
           const title = document.createElement("div");
           title.className = "metric-title";
           const label = event ? (event.label || event.event_id) : eventId;
           const time = event ? formatTimestampShort(event.start_time) : "unknown time";
           title.textContent = `${time} · ${label}`;
-          card.appendChild(title);
+          titleRow.appendChild(title);
+
+          const signal = signalsMap?.get(eventId);
+          if (signal) {
+            const chip = document.createElement("span");
+            const status = signal.status || "green";
+            chip.className = `status-chip status-${status}`;
+            chip.textContent = status;
+            titleRow.appendChild(chip);
+          }
+          card.appendChild(titleRow);
+
+          if (signal && signal.triggers && signal.triggers.length) {
+            const triggers = document.createElement("ul");
+            triggers.className = "trigger-list";
+            signal.triggers.forEach((trigger) => {
+              const item = document.createElement("li");
+              item.textContent = trigger.message || trigger.metric || "trigger";
+              triggers.appendChild(item);
+            });
+            card.appendChild(triggers);
+          }
 
           group.forEach((metric) => {
             const row = document.createElement("div");
@@ -545,7 +622,7 @@
 
             const name = document.createElement("span");
             name.className = "metric-name";
-            name.textContent = metric.metric_name || "metric";
+            name.textContent = formatMetricName(metric.metric_name);
 
             const value = document.createElement("span");
             value.className = "metric-value";
@@ -635,6 +712,13 @@
 
         const metricsData = await loadJson(`${basePath}/metrics.json`);
         const metrics = metricsData ? metricsData.metrics || [] : [];
+
+        const signalsData = await loadJson(`${basePath}/event_signals.json`);
+        const signals = signalsData ? signalsData.events || [] : [];
+        const signalsMap = new Map();
+        signals.forEach((signal) => {
+          if (signal.event_id) signalsMap.set(signal.event_id, signal);
+        });
 
         const section = document.createElement("section");
         section.className = "panel case";
@@ -740,10 +824,10 @@
         const metricsTitle = document.createElement("h3");
         metricsTitle.textContent = "Metrics";
         metricsPanel.appendChild(metricsTitle);
-        metricsPanel.appendChild(renderMetricsList(metrics, eventMap));
+        metricsPanel.appendChild(renderMetricsList(metrics, eventMap, signalsMap));
         const metricsNote = document.createElement("p");
         metricsNote.className = "note";
-        metricsNote.textContent = "Derived per event if metrics are available.";
+        metricsNote.textContent = "Signals use coverage + core metrics; triggers list why a card is red/yellow/gray.";
         metricsPanel.appendChild(metricsNote);
 
         details.appendChild(eventsPanel);
@@ -765,9 +849,10 @@
         list.className = "metrics-glossary";
         list.innerHTML = `
           <li><strong>baseline_glucose</strong> — mean glucose in the 30 minutes before the event.</li>
-          <li><strong>iAUC</strong> — incremental area under the curve above baseline in the event window.</li>
-          <li><strong>delta_peak</strong> — peak glucose minus baseline (not used for questions).</li>
+          <li><strong>iAUC_0-120</strong> — incremental area under the curve above baseline in the first 120 minutes.</li>
+          <li><strong>delta_peak</strong> — peak glucose minus baseline (used for signals).</li>
           <li><strong>time_to_peak</strong> — minutes from event start to max glucose.</li>
+          <li><strong>nadir_glucose</strong> — minimum glucose value within 0–180 minutes.</li>
           <li><strong>recovery_slope</strong> — linear slope during the recovery window; negative means falling (recovery), positive means rising. “return %” compares recovery end to baseline.</li>
         `;
         panel.appendChild(list);

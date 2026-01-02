@@ -171,6 +171,8 @@ def main() -> None:
 
     metrics_data = None
     metrics_path = None
+    signals_data = None
+    signals_path = None
     events_data = None
     events_path_used = None
 
@@ -217,6 +219,16 @@ def main() -> None:
         metrics_path = output_dir / "metrics.json"
         write_json(metrics_path, metrics_data, args.pretty)
 
+        if args.verbose:
+            print("Evaluating event signals...", file=sys.stderr)
+
+        from cgm_signals.event_signals import EventSignalEvaluator
+
+        signal_evaluator = EventSignalEvaluator()
+        signals_data = signal_evaluator.evaluate(cgm_data, events_data, metrics_data)
+        signals_path = output_dir / "event_signals.json"
+        write_json(signals_path, signals_data, args.pretty)
+
     answerability = None
     answerability_path = None
 
@@ -252,6 +264,7 @@ def main() -> None:
             "sanity_json": str(sanity_path),
             "events_json": str(events_path_used) if events_path_used is not None else None,
             "metrics_json": str(metrics_path) if metrics_path is not None else None,
+            "event_signals_json": str(signals_path) if signals_path is not None else None,
             "answerability_json": str(answerability_path) if answerability_path is not None else None,
         },
         "summary": {

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/glyco-map/schemas/1.0.0/event-signals.schema.json",
+  "title": "Event Signals",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "signal_set_id",
+    "time_zone",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "signal_set_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_id": {
+      "type": "string"
+    },
+    "time_zone": {
+      "$ref": "#/$defs/time_zone"
+    },
+    "series_id": {
+      "type": "string"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/date_time_tz"
+    },
+    "coverage_soft": {
+      "type": "number"
+    },
+    "history_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "min_history": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event_signal"
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "time_zone": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+.-]+/[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)?$",
+      "description": "IANA time zone name such as America/Los_Angeles."
+    },
+    "date_time_tz": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+      "description": "RFC 3339 timestamp with explicit timezone (Z or offset)."
+    },
+    "event_signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "status", "triggers"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["green", "yellow", "red", "gray"]
+        },
+        "coverage_ratio": {
+          "type": ["number", "null"]
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trigger"
+          }
+        },
+        "metric_values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "comparison", "basis", "severity", "message"],
+      "properties": {
+        "metric": {
+          "type": "string"
+        },
+        "value": {
+          "type": ["number", "null"]
+        },
+        "threshold": {
+          "type": ["number", "null"]
+        },
+        "comparison": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["hard", "soft"]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

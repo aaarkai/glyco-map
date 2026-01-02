@@ -54,18 +54,21 @@ for file in "${files[@]}"; do
     events_args=(--events-file "$EVENTS_FALLBACK_JSON")
   fi
 
-  python -m cgm_pipeline.cli \
-    "$file" \
-    "$output_dir" \
-    "${events_args[@]:-}" \
-    "${question_args[@]:-}" \
-    "${subject_args[@]:-}" \
-    "${device_args[@]:-}" \
-    --timezone "$TIMEZONE" \
-    --unit "$UNIT" \
-    --pretty \
-    --markdown \
-    --verbose
+  cmd=(python -m cgm_pipeline.cli "$file" "$output_dir")
+  if [ "${#events_args[@]}" -gt 0 ]; then
+    cmd+=("${events_args[@]}")
+  fi
+  if [ "${#question_args[@]}" -gt 0 ]; then
+    cmd+=("${question_args[@]}")
+  fi
+  if [ "${#subject_args[@]}" -gt 0 ]; then
+    cmd+=("${subject_args[@]}")
+  fi
+  if [ "${#device_args[@]}" -gt 0 ]; then
+    cmd+=("${device_args[@]}")
+  fi
+  cmd+=(--timezone "$TIMEZONE" --unit "$UNIT" --pretty --markdown --verbose)
+  "${cmd[@]}"
 
 done
 

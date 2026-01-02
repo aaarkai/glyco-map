@@ -66,8 +66,8 @@ Examples:
         "-u", "--unit",
         type=str,
         choices=["mg/dL", "mmol/L"],
-        default="mg/dL",
-        help="Glucose value unit (default: mg/dL)"
+        default="mmol/L",
+        help="Glucose value unit (default: mmol/L)"
     )
 
     parser.add_argument(

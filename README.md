@@ -164,7 +164,7 @@ Run a full pipeline from XLSX to answerability report:
 ```bash
 python -m cgm_pipeline.cli data.xlsx output/ \
   --timezone Asia/Shanghai \
-  --unit mg/dL \
+  --unit mmol/L \
   --markdown \
   --pretty \
   --verbose
@@ -232,7 +232,7 @@ The page will be available at `https://<user>.github.io/<repo>/`.
 - `-s, --subject-id`: Subject identifier (required)
 - `-d, --device-id`: CGM device identifier (required)
 - `-z, --timezone`: IANA timezone name (e.g., 'America/Los_Angeles'). Can also be set via `CGM_TZ` environment variable.
-- `-u, --unit`: Glucose value unit - 'mg/dL' or 'mmol/L' (default: mg/dL)
+- `-u, --unit`: Glucose value unit - 'mg/dL' or 'mmol/L' (default: mmol/L)
 - `--validate`: Validate output against schema (requires jsonschema package)
 - `--pretty`: Pretty print JSON output
 

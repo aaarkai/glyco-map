@@ -60,7 +60,7 @@ Examples:
     parser.add_argument("--subject-id", help="Subject identifier (optional)")
     parser.add_argument("--device-id", help="CGM device identifier (optional)")
     parser.add_argument("--timezone", required=True, help="IANA timezone name")
-    parser.add_argument("--unit", choices=["mg/dL", "mmol/L"], default="mg/dL")
+    parser.add_argument("--unit", choices=["mg/dL", "mmol/L"], default="mmol/L")
     parser.add_argument("--metric-set-id", type=str, help="Metric set identifier")
 
     parser.add_argument("--min-events", type=int, default=2, help="Minimum events per group")

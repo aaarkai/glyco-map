@@ -35,7 +35,7 @@ on:
         required: true
       unit:
         description: "Glucose unit"
-        default: "mg/dL"
+        default: "mmol/L"
         required: true
   push:
     paths:
@@ -81,7 +81,7 @@ jobs:
           SUBJECT_ID="${{ inputs.subject_id || vars.SUBJECT_ID }}"
           DEVICE_ID="${{ inputs.device_id || vars.DEVICE_ID }}"
           TIMEZONE="${{ inputs.timezone || vars.TIMEZONE || 'Asia/Shanghai' }}"
-          UNIT="${{ inputs.unit || 'mg/dL' }}"
+          UNIT="${{ inputs.unit || 'mmol/L' }}"
 
           mkdir -p "$OUTPUT_ROOT"
 

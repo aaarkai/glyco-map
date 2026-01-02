@@ -201,7 +201,7 @@
 
       canvas {
         width: 100%;
-        height: 240px;
+        height: 260px;
         display: block;
         border-radius: 16px;
         background: rgba(255, 255, 255, 0.6);
@@ -327,7 +327,7 @@
 
       @media (max-width: 980px) {
         canvas {
-          height: 260px;
+          height: 280px;
         }
       }
 
@@ -373,9 +373,9 @@
 
       function formatDateLabel(date) {
         const pad = (num) => String(num).padStart(2, "0");
-        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
-          date.getHours()
-        )}:${pad(date.getMinutes())}`;
+        return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+          date.getMinutes()
+        )}`;
       }
 
       function safeMinMax(values) {
@@ -412,20 +412,28 @@
         }
       }
 
-      function drawTimeAxis(ctx, minTime, maxTime, xScale, plotBottom, axisHeight) {
-        const tickCount = 5;
+      function drawTimeAxis(ctx, minTime, maxTime, xScale, padding, width, plotBottom, axisHeight) {
+        const tickCount = 4;
         const span = maxTime - minTime || 1;
-        ctx.strokeStyle = "rgba(31, 26, 20, 0.25)";
-        ctx.fillStyle = "#6f6255";
-        ctx.font = "11px Literata, serif";
+        ctx.strokeStyle = "rgba(31, 26, 20, 0.38)";
+        ctx.fillStyle = "#3f352c";
+        ctx.font = "12px Literata, serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         const yTick = plotBottom;
-        const yLabel = yTick + Math.min(axisHeight - 10, 12);
+        const yLabel = yTick + 10;
+
+        ctx.beginPath();
+        ctx.moveTo(padding, plotBottom);
+        ctx.lineTo(width - padding, plotBottom);
+        ctx.stroke();
 
         for (let i = 0; i < tickCount; i++) {
           const t = minTime + (span * i) / (tickCount - 1);
           const x = xScale(t);
+          if (i === 0) ctx.textAlign = "left";
+          else if (i === tickCount - 1) ctx.textAlign = "right";
+          else ctx.textAlign = "center";
           ctx.beginPath();
           ctx.moveTo(x, yTick);
           ctx.lineTo(x, yTick + 6);
@@ -672,13 +680,13 @@
 
         const canvas = document.createElement("canvas");
         canvas.width = 1200;
-        canvas.height = 240;
+        canvas.height = 260;
         chartPanel.appendChild(canvas);
         section.appendChild(chartPanel);
 
         const ctx = canvas.getContext("2d");
         const padding = 46;
-        const axisHeight = 28;
+        const axisHeight = 36;
         const width = canvas.width;
         const height = canvas.height;
         const plotBottom = height - padding - axisHeight;
@@ -703,7 +711,7 @@
           drawEvents(ctx, events, xScale, padding, plotBottom);
         }
 
-        drawTimeAxis(ctx, minTime, maxTime, xScale, plotBottom, axisHeight);
+        drawTimeAxis(ctx, minTime, maxTime, xScale, padding, width, plotBottom, axisHeight);
 
         const details = document.createElement("div");
         details.className = "case-details two-up";

@@ -619,7 +619,9 @@
         const samples = cgm.samples || [];
         const times = samples.map((s) => parseTimestamp(s.timestamp));
         const values = samples.map((s) => Number(s.glucose_value));
-        const [minValue, maxValue] = safeMinMax(values);
+        const [, rawMaxValue] = safeMinMax(values);
+        const minValue = 0;
+        const maxValue = Math.max(1, Math.ceil(rawMaxValue) + 1);
 
         const minTime = new Date(Math.min(...times.map((t) => t.getTime())));
         const maxTime = new Date(Math.max(...times.map((t) => t.getTime())));
@@ -679,16 +681,22 @@
         chartPanel.appendChild(chartHeader);
 
         const canvas = document.createElement("canvas");
-        canvas.width = 1200;
-        canvas.height = 260;
+        const displayWidth = 1200;
+        const displayHeight = 260;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = displayWidth * dpr;
+        canvas.height = displayHeight * dpr;
+        canvas.style.width = "100%";
+        canvas.style.height = `${displayHeight}px`;
         chartPanel.appendChild(canvas);
         section.appendChild(chartPanel);
 
         const ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
         const padding = 46;
         const axisHeight = 36;
-        const width = canvas.width;
-        const height = canvas.height;
+        const width = displayWidth;
+        const height = displayHeight;
         const plotBottom = height - padding - axisHeight;
         const plotHeight = plotBottom - padding;
         ctx.clearRect(0, 0, width, height);

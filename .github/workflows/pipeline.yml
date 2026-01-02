@@ -19,6 +19,11 @@ on:
         description: "Path to question JSON file"
         default: "data/question.json"
         required: false
+      run_all:
+        description: "Process all data/*.xlsx files (ignores xlsx_path)"
+        default: false
+        required: false
+        type: boolean
       output_dir:
         description: "Output directory"
         default: "output"
@@ -99,10 +104,16 @@ jobs:
           fi
 
           XLSX_LIST=()
-          if [ -n "$XLSX_PATH_INPUT" ] && [ -f "$XLSX_PATH_INPUT" ]; then
+          if [ "${{ inputs.run_all }}" = "true" ]; then
+            while IFS= read -r -d '' file; do
+              XLSX_LIST+=("$file")
+            done < <(find data -maxdepth 1 -type f -name '*.xlsx' -print0)
+          elif [ -n "$XLSX_PATH_INPUT" ] && [ -f "$XLSX_PATH_INPUT" ]; then
             XLSX_LIST=("$XLSX_PATH_INPUT")
           else
-            mapfile -t XLSX_LIST < <(ls data/*.xlsx 2>/dev/null || true)
+            while IFS= read -r -d '' file; do
+              XLSX_LIST+=("$file")
+            done < <(find data -maxdepth 1 -type f -name '*.xlsx' -print0)
           fi
 
           if [ "${#XLSX_LIST[@]}" -eq 0 ]; then

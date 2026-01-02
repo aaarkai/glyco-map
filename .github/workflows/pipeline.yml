@@ -196,7 +196,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cgm-pipeline-output
-          path: ${{ inputs.output_dir }}
+          path: ${{ inputs.output_dir || 'output' }}
 
       - name: Prepare Pages artifact
         run: |

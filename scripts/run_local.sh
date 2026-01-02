@@ -57,10 +57,10 @@ for file in "${files[@]}"; do
   python -m cgm_pipeline.cli \
     "$file" \
     "$output_dir" \
-    "${events_args[@]}" \
-    "${question_args[@]}" \
-    "${subject_args[@]}" \
-    "${device_args[@]}" \
+    "${events_args[@]:-}" \
+    "${question_args[@]:-}" \
+    "${subject_args[@]:-}" \
+    "${device_args[@]:-}" \
     --timezone "$TIMEZONE" \
     --unit "$UNIT" \
     --pretty \
